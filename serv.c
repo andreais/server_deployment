@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <string.h>
 
 /**
@@ -61,7 +62,11 @@
 **/
 
 #define LOCAL_PORT 10000
-#define LOCAL_HOST 127.0.0.1
+#define LOCAL_HOST "127.0.0.1"
+
+#define GREEN		"\e[32m"
+#define DEFAULT		"\e[0m"
+#define BOLD		"\e[1m"
 
 int main(void)
 {
@@ -79,7 +84,13 @@ int main(void)
 	bind(server_socket, (struct sockaddr *) &server_socket_name, sizeof(struct sockaddr_in)); // binding socket
 	server_socket_name.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 	listen(server_socket, 1); // (see the second argument, that is the most important here)
+	printf("%s%sServer created.%s\n", GREEN, BOLD, DEFAULT);
+	printf("%sListening on:\t%s:%d%s\n", GREEN, LOCAL_HOST, LOCAL_PORT, DEFAULT);
 	client_socket = accept(server_socket, NULL, NULL); // accept is a loop
+	char *buff = malloc(sizeof(char) * 1);
+	while (read(client_socket, buff, 1)) {
+		write(1, &buff[0], 1);
+	}
 	shutdown(client_socket, 2); // shutdown AND close all sockets
 	close(client_socket);
 	shutdown(server_socket, 2);
