@@ -110,6 +110,8 @@ int main(void)
 
 			client_socket = accept(server_socket, (struct sockaddr *) &client_socket_name, &addr_len);
 			creating_client(client_socket, client_socket_name);
+			shutdown(client_socket, 2);
+			close(client_socket);
 		} else {
 			waitpid(-1, NULL, 0);
 		}
