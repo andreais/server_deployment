@@ -91,6 +91,8 @@ int main(void)
 	struct sockaddr_in client_socket_name;
 	unsigned int addr_len = sizeof(struct sockaddr_in);
 
+	// TO FORK
+	// accept() IS A BLOCKING FUNCTION
 	while ((client_socket = accept(server_socket, (struct sockaddr*) &client_socket_name, &addr_len)) > 0) {
 
 		char *buff = malloc(sizeof(char) * 1);
