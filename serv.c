@@ -79,6 +79,28 @@ void creating_client(int client_socket, struct sockaddr_in client_socket_name)
 			write(1, &buff[0], 1);
 		}
 	}
+	free(buff);
+}
+
+void wait_connections(int server_socket)
+{
+	pid_t pid = fork();
+	int client_socket;
+	struct sockaddr_in client_socket_name;
+	unsigned int addr_len = sizeof(struct sockaddr_in);
+
+
+	if (pid == 0) {
+		client_socket = accept(server_socket, (struct sockaddr *) &client_socket_name, &addr_len);
+		creating_client(client_socket, client_socket_name);
+		shutdown(client_socket, 2);
+		close(client_socket);
+	} else {
+		client_socket = accept(server_socket, (struct sockaddr *) &client_socket_name, &addr_len);
+		creating_client(client_socket, client_socket_name);
+		shutdown(client_socket, 2);
+		close(client_socket);
+	}
 }
 
 int main(void)
@@ -86,7 +108,6 @@ int main(void)
 	int server_socket = socket(PF_INET, SOCK_STREAM, 0); // opening a socket
 	struct sockaddr_in server_socket_name; // struct containing information about the socket
 	int optval = 1;
-
 	if (server_socket < 0)
 		return EXIT_FAILURE;
 	setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR,&optval, sizeof(int)); // make socket reuseable after closing server
@@ -96,25 +117,15 @@ int main(void)
 	bind(server_socket, (struct sockaddr *) &server_socket_name, sizeof(struct sockaddr_in)); // binding socket
 	server_socket_name.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 	listen(server_socket, 3); // (see the second argument, that is the most important here)
+
 	printf("%s%sServer created.%s\n", GREEN, BOLD, DEFAULT);
 	printf("%sListening on:\t%s:%d%s\n", GREEN, LOCAL_HOST, LOCAL_PORT, DEFAULT);
-
 
 	// TO FORK
 	// accept() IS A BLOCKING FUNCTION
 	while (1) {
-		if ((fork() != 0)) {
-			int client_socket;
-			struct sockaddr_in client_socket_name;
-			unsigned int addr_len = sizeof(struct sockaddr_in);
-
-			client_socket = accept(server_socket, (struct sockaddr *) &client_socket_name, &addr_len);
-			creating_client(client_socket, client_socket_name);
-			shutdown(client_socket, 2);
-			close(client_socket);
-		} else {
-			waitpid(-1, NULL, 0);
-		}
+		wait_connections(server_socket);
+		printf("Connection lost\n");
 	}
 	shutdown(server_socket, 2);
 	close(server_socket);
