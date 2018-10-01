@@ -61,20 +61,24 @@
 #define SERVER_PORT	10000
 #define SERVER_HOST	"127.0.0.1"
 
-int main(void)
+int main(int ac, char **av)
 {
 	int client_socket = socket(PF_INET, SOCK_STREAM, 0);
 	struct sockaddr_in client_socket_name;
 
-	char *msg = "hello world!\n";
-
+	if (ac < 1) {
+		printf("Usage:\n\t./client [message]\n");
+		exit(1);
+	}
 	memset((char *) &client_socket_name, 0, sizeof(struct sockaddr_in));
 	client_socket_name.sin_family = AF_INET;
 	client_socket_name.sin_port = htons(SERVER_PORT);
 	client_socket_name.sin_addr.s_addr= htonl(INADDR_LOOPBACK);
 
 	connect(client_socket, (struct sockaddr *) &client_socket_name,
-	sizeof(struct sockaddr_in));
+		sizeof(struct sockaddr_in));
+	write(client_socket, av[1], strlen(av[1]));
+	write(client_socket, "\n", 1);
 	shutdown(client_socket, 2);
 	close(client_socket);
 }
