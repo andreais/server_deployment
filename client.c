@@ -58,6 +58,9 @@
 * close sockets
 **/
 
+#define	BOLD		"\e[1m"
+#define DEFAULT		"\e[0m"
+
 #define SERVER_PORT	10000
 #define SERVER_HOST	"127.0.0.1"
 #include <stdlib.h>
@@ -127,7 +130,7 @@ int main(int ac, char **av)
 	struct sockaddr_in client_socket_name;
 
 	if (ac == 1) {
-		printf("Careful ! You're entering free mode.\n");
+		printf("%sCareful%s ! You're entering free mode.\n", BOLD, DEFAULT);
 	}
 	memset((char *) &client_socket_name, 0, sizeof(struct sockaddr_in));
 	client_socket_name.sin_family = AF_INET;
