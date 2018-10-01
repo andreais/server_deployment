@@ -78,5 +78,11 @@ int main(void)
 	server_socket_name.sin_port = htons(LOCAL_PORT); // converting port
 	bind(server_socket, (struct sockaddr *) &server_socket_name, sizeof(struct sockaddr_in)); // binding socket
 	server_socket_name.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+	listen(server_socket, 1); // (see the second argument, that is the most important here)
+	client_socket = accept(server_socket, NULL, NULL); // accept is a loop
+	shutdown(client_socket, 2); // shutdown AND close all sockets
+	close(client_socket);
+	shutdown(server_socket, 2);
+	close(server_socket);
 	return 0;
 }
