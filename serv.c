@@ -86,10 +86,18 @@ int main(void)
 	listen(server_socket, 1); // (see the second argument, that is the most important here)
 	printf("%s%sServer created.%s\n", GREEN, BOLD, DEFAULT);
 	printf("%sListening on:\t%s:%d%s\n", GREEN, LOCAL_HOST, LOCAL_PORT, DEFAULT);
-	client_socket = accept(server_socket, NULL, NULL); // accept is a loop
-	char *buff = malloc(sizeof(char) * 1);
-	while (read(client_socket, buff, 1)) {
-		write(1, &buff[0], 1);
+
+
+	struct sockaddr_in client_socket_name;
+	unsigned int addr_len = sizeof(struct sockaddr_in);
+
+	while ((client_socket = accept(server_socket, (struct sockaddr*) &client_socket_name, &addr_len)) > 0) {
+
+		char *buff = malloc(sizeof(char) * 1);
+		printf("%s%s%s successfully connected\n", BOLD, inet_ntoa(client_socket_name.sin_addr), DEFAULT);
+		while (read(client_socket, buff, 1)) {
+			write(1, &buff[0], 1);
+		}
 	}
 	shutdown(client_socket, 2); // shutdown AND close all sockets
 	close(client_socket);
