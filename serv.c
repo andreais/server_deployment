@@ -71,6 +71,10 @@
 
 void creating_client(int client_socket, struct sockaddr_in client_socket_name)
 {
+	/**
+	* creating_client is more like, printing texts and will be used to send too
+	* its a generic function to get input from a file descriptor (client_socket) and pretty print it
+	*/
 	char buff[256];
 
 	if (client_socket > 0) {
@@ -84,18 +88,20 @@ void creating_client(int client_socket, struct sockaddr_in client_socket_name)
 
 void wait_connections(int server_socket)
 {
-	pid_t pid = fork();
+	pid_t pid = fork(); // forking
 	int client_socket;
-	struct sockaddr_in client_socket_name;
-	unsigned int addr_len = sizeof(struct sockaddr_in);
+	struct sockaddr_in client_socket_name; // struct containing informations on the client_socket
+	unsigned int addr_len = sizeof(struct sockaddr_in); // well, think about it yourself
 
 
 	if (pid == 0) {
+		// if it's child's process, it means a connection is already here. then, waiting for client
 		client_socket = accept(server_socket, (struct sockaddr *) &client_socket_name, &addr_len);
 		creating_client(client_socket, client_socket_name);
 		shutdown(client_socket, 2);
 		close(client_socket);
 	} else {
+		// if it's parent's process, it means no one connected. then, waiting for one
 		client_socket = accept(server_socket, (struct sockaddr *) &client_socket_name, &addr_len);
 		creating_client(client_socket, client_socket_name);
 		shutdown(client_socket, 2);
@@ -108,6 +114,7 @@ int main(void)
 	int server_socket = socket(PF_INET, SOCK_STREAM, 0); // opening a socket
 	struct sockaddr_in server_socket_name; // struct containing information about the socket
 	int optval = 1;
+
 	if (server_socket < 0)
 		return EXIT_FAILURE;
 	setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR,&optval, sizeof(int)); // make socket reuseable after closing server
@@ -115,7 +122,7 @@ int main(void)
 	server_socket_name.sin_family = AF_INET;
 	server_socket_name.sin_port = htons(LOCAL_PORT); // converting port
 	bind(server_socket, (struct sockaddr *) &server_socket_name, sizeof(struct sockaddr_in)); // binding socket
-	inet_aton(LOCAL_HOST, &server_socket_name.sin_addr);
+	inet_aton(LOCAL_HOST, &server_socket_name.sin_addr); // listening on the local host (127.0.0.1)
 	listen(server_socket, 3); // (see the second argument, that is the most important here)
 
 	printf("%s%sServer created.%s\n", GREEN, BOLD, DEFAULT);
@@ -125,7 +132,7 @@ int main(void)
 		wait_connections(server_socket);
 		printf("Connection lost\n");
 	}
-	shutdown(server_socket, 2);
-	close(server_socket);
+	shutdown(server_socket, 2); // stopping server_socket
+	close(server_socket); // closing server_socket
 	return 0;
 }
