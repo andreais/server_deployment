@@ -58,10 +58,45 @@
 * close sockets
 **/
 
+#define	BOLD		"\e[1m"
+#define DEFAULT		"\e[0m"
+
 #define SERVER_PORT	10000
-#define SERVER_HOST	"127.0.0.1"
+#define SERVER_HOST	"206.189.26.6"
+
 #include <stdlib.h>
 #include <unistd.h>
+
+char *get_next_line(int fd);
+
+int main(int ac, char **av)
+{
+	int client_socket = socket(PF_INET, SOCK_STREAM, 0);
+	struct sockaddr_in client_socket_name;
+
+	if (ac == 1) {
+		printf("%sCareful%s ! You're entering free mode.\n", BOLD, DEFAULT);
+	}
+	memset((char *) &client_socket_name, 0, sizeof(struct sockaddr_in));
+	client_socket_name.sin_family = AF_INET;
+	client_socket_name.sin_port = htons(SERVER_PORT);
+	inet_aton(SERVER_HOST, &client_socket_name.sin_addr);
+
+	connect(client_socket, (struct sockaddr *) &client_socket_name,
+		sizeof(struct sockaddr_in));
+	if (ac > 1) {
+		write(client_socket, av[1], strlen(av[1]));
+		write(client_socket, "\n", 1);
+	} else {
+		char *buff;
+		while ((buff = get_next_line(0)) != NULL) {
+			write(client_socket, buff, strlen(buff));
+			write(client_socket, "\n", 1);
+		}
+	}
+	shutdown(client_socket, 2);
+	close(client_socket);
+}
 
 int check_buffer(char *buff)
 {
@@ -120,32 +155,4 @@ char *get_next_line(int fd)
   return (NULL);
  } else
   return (ret);
-}
-int main(int ac, char **av)
-{
-	int client_socket = socket(PF_INET, SOCK_STREAM, 0);
-	struct sockaddr_in client_socket_name;
-
-	if (ac == 1) {
-		printf("Careful ! You're entering free mode.\n");
-	}
-	memset((char *) &client_socket_name, 0, sizeof(struct sockaddr_in));
-	client_socket_name.sin_family = AF_INET;
-	client_socket_name.sin_port = htons(SERVER_PORT);
-	client_socket_name.sin_addr.s_addr= htonl(INADDR_LOOPBACK);
-
-	connect(client_socket, (struct sockaddr *) &client_socket_name,
-		sizeof(struct sockaddr_in));
-	if (ac > 1) {
-		write(client_socket, av[1], strlen(av[1]));
-		write(client_socket, "\n", 1);
-	} else {
-		char *buff;
-		while ((buff = get_next_line(0)) != NULL) {
-			write(client_socket, buff, strlen(buff));
-			write(client_socket, "\n", 1);
-		}
-	}
-	shutdown(client_socket, 2);
-	close(client_socket);
 }
