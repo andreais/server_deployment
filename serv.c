@@ -93,7 +93,6 @@ void wait_connections(int server_socket)
 	struct sockaddr_in client_socket_name; // struct containing informations on the client_socket
 	unsigned int addr_len = sizeof(struct sockaddr_in); // well, think about it yourself
 
-
 	if (pid == 0) {
 		// if it's child's process, it means a connection is already here. then, waiting for client
 		client_socket = accept(server_socket, (struct sockaddr *) &client_socket_name, &addr_len);
@@ -126,10 +125,8 @@ int main(void)
 	bind(server_socket, (struct sockaddr *) &server_socket_name, sizeof(struct sockaddr_in)); // binding socket
 	inet_aton(LOCAL_HOST, &server_socket_name.sin_addr); // listening on the local host (127.0.0.1)
 	listen(server_socket, 3); // (see the second argument, that is the most important here)
-
 	printf("%s%sServer created.%s\n", GREEN, BOLD, DEFAULT);
 	printf("%sListening on:\t%s:%d%s\n", GREEN, LOCAL_HOST, LOCAL_PORT, DEFAULT);
-
 	while (1) {
 		wait_connections(server_socket);
 	}
