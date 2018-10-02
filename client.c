@@ -62,7 +62,8 @@
 #define DEFAULT		"\e[0m"
 
 #define SERVER_PORT	10000
-#define SERVER_HOST	"206.189.26.6"
+//#define SERVER_HOST	"206.189.26.6"
+#define SERVER_HOST	"127.0.0.1"
 
 #include <stdlib.h>
 #include <unistd.h>

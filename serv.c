@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <signal.h>
 #include <sys/wait.h>
 #include <string.h>
 
@@ -69,7 +70,7 @@
 #define DEFAULT		"\e[0m"
 #define BOLD		"\e[1m"
 
-void creating_client(int client_socket, struct sockaddr_in client_socket_name)
+void creating_client(int client_socket, struct sockaddr_in client_socket_name, FILE* logfile)
 {
 	/**
 	* creating_client is more like, printing texts and will be used to send too
@@ -78,15 +79,17 @@ void creating_client(int client_socket, struct sockaddr_in client_socket_name)
 	char buff[256];
 
 	if (client_socket > 0) {
+		fprintf(logfile, "%s successfully connected\n", inet_ntoa(client_socket_name.sin_addr));
 		printf("%s%s%s successfully connected\n", BOLD, inet_ntoa(client_socket_name.sin_addr), DEFAULT);
 		while (fgets(buff, sizeof(buff), fdopen(client_socket, "r"))) {
+			fprintf(logfile, "%s: %s", inet_ntoa(client_socket_name.sin_addr), buff);
 			printf("%s%s%s: ", BOLD, inet_ntoa(client_socket_name.sin_addr), DEFAULT);
 			printf("%s", buff);
 		}
 	}
 }
 
-void wait_connections(int server_socket)
+void wait_connections(int server_socket, FILE* logfile)
 {
 	pid_t pid = fork(); // forking
 	int client_socket;
@@ -96,17 +99,35 @@ void wait_connections(int server_socket)
 	if (pid == 0) {
 		// if it's child's process, it means a connection is already here. then, waiting for client
 		client_socket = accept(server_socket, (struct sockaddr *) &client_socket_name, &addr_len);
-		creating_client(client_socket, client_socket_name);
+		creating_client(client_socket, client_socket_name, logfile);
+		fprintf(logfile, "Connection lost from %s\n", inet_ntoa(client_socket_name.sin_addr));
 		printf("Connection lost from %s%s%s\n", BOLD, inet_ntoa(client_socket_name.sin_addr), DEFAULT);
 		shutdown(client_socket, 2);
 		close(client_socket);
 	} else {
 		// if it's parent's process, it means no one connected. then, waiting for one
 		client_socket = accept(server_socket, (struct sockaddr *) &client_socket_name, &addr_len);
-		creating_client(client_socket, client_socket_name);
+		creating_client(client_socket, client_socket_name, logfile);
+		fprintf(logfile, "Connection lost from %s\n", inet_ntoa(client_socket_name.sin_addr));
 		printf("Connection lost from %s%s%s\n", BOLD, inet_ntoa(client_socket_name.sin_addr), DEFAULT);
 		shutdown(client_socket, 2);
 		close(client_socket);
+	}
+}
+
+void reading_input(int server_socket, FILE* logfile)
+{
+	pid_t pid = fork();
+	char input[256];
+	
+	if (pid == 0) {
+		wait_connections(server_socket, logfile);
+	} else {
+		while (fgets(input, sizeof(input), stdin)) {
+			if (strcmp(input, "!q\n") == 0) {
+				return;
+			}
+		}
 	}
 }
 
@@ -115,6 +136,7 @@ int main(void)
 	int server_socket = socket(PF_INET, SOCK_STREAM, 0); // opening a socket
 	struct sockaddr_in server_socket_name; // struct containing information about the socket
 	int optval = 1;
+	FILE *logfile = fopen("logs.txt", "r");
 
 	if (server_socket < 0)
 		return EXIT_FAILURE;
@@ -125,12 +147,15 @@ int main(void)
 	bind(server_socket, (struct sockaddr *) &server_socket_name, sizeof(struct sockaddr_in)); // binding socket
 	inet_aton(LOCAL_HOST, &server_socket_name.sin_addr); // listening on the local host (127.0.0.1)
 	listen(server_socket, 3); // (see the second argument, that is the most important here)
+	fprintf(logfile, "Server created\n");
 	printf("%s%sServer created.%s\n", GREEN, BOLD, DEFAULT);
+	fprintf(logfile, "Listening on:\t%s:%d\n", LOCAL_HOST, LOCAL_PORT);
 	printf("%sListening on:\t%s:%d%s\n", GREEN, LOCAL_HOST, LOCAL_PORT, DEFAULT);
-	while (1) {
-		wait_connections(server_socket);
-	}
+
+	reading_input(server_socket, logfile);
+	
 	shutdown(server_socket, 2); // stopping server_socket
 	close(server_socket); // closing server_socket
+	fclose(logfile);
 	return 0;
 }
