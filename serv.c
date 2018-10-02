@@ -71,15 +71,15 @@
 
 void creating_client(int client_socket, struct sockaddr_in client_socket_name)
 {
-	char *buff = malloc(sizeof(char) * 1);
+	char buff[256];
 
 	if (client_socket > 0) {
 		printf("%s%s%s successfully connected\n", BOLD, inet_ntoa(client_socket_name.sin_addr), DEFAULT);
-		while (read(client_socket, buff, 1)) {
-			write(1, &buff[0], 1);
+		while (fgets(buff, sizeof(buff), fdopen(client_socket, "r"))) {
+			printf("%s%s%s: ", BOLD, inet_ntoa(client_socket_name.sin_addr), DEFAULT);
+			printf("%s", buff);
 		}
 	}
-	free(buff);
 }
 
 void wait_connections(int server_socket)
@@ -115,14 +115,12 @@ int main(void)
 	server_socket_name.sin_family = AF_INET;
 	server_socket_name.sin_port = htons(LOCAL_PORT); // converting port
 	bind(server_socket, (struct sockaddr *) &server_socket_name, sizeof(struct sockaddr_in)); // binding socket
-	server_socket_name.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+	inet_aton(LOCAL_HOST, &server_socket_name.sin_addr);
 	listen(server_socket, 3); // (see the second argument, that is the most important here)
 
 	printf("%s%sServer created.%s\n", GREEN, BOLD, DEFAULT);
 	printf("%sListening on:\t%s:%d%s\n", GREEN, LOCAL_HOST, LOCAL_PORT, DEFAULT);
 
-	// TO FORK
-	// accept() IS A BLOCKING FUNCTION
 	while (1) {
 		wait_connections(server_socket);
 		printf("Connection lost\n");
