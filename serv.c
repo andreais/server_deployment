@@ -119,13 +119,17 @@ void reading_input(int server_socket, FILE* logfile)
 {
 	pid_t pid = fork();
 	char input[256];
-	
+
 	if (pid == 0) {
 		wait_connections(server_socket, logfile);
 	} else {
 		while (fgets(input, sizeof(input), stdin)) {
 			if (strcmp(input, "!q\n") == 0) {
-				return;
+				kill(pid, SIGKILL);
+				shutdown(server_socket, 2); // stopping server_socket
+				close(server_socket); // closing server_socket
+				fclose(logfile);
+				exit(1);
 			}
 		}
 	}
@@ -136,8 +140,10 @@ int main(void)
 	int server_socket = socket(PF_INET, SOCK_STREAM, 0); // opening a socket
 	struct sockaddr_in server_socket_name; // struct containing information about the socket
 	int optval = 1;
-	FILE *logfile = fopen("logs.txt", "r");
+	FILE *logfile = fopen("logs.txt", "w");
 
+	if (!logfile)
+		return 1;
 	if (server_socket < 0)
 		return EXIT_FAILURE;
 	setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR,&optval, sizeof(int)); // make socket reuseable after closing server
@@ -151,11 +157,6 @@ int main(void)
 	printf("%s%sServer created.%s\n", GREEN, BOLD, DEFAULT);
 	fprintf(logfile, "Listening on:\t%s:%d\n", LOCAL_HOST, LOCAL_PORT);
 	printf("%sListening on:\t%s:%d%s\n", GREEN, LOCAL_HOST, LOCAL_PORT, DEFAULT);
-
 	reading_input(server_socket, logfile);
-	
-	shutdown(server_socket, 2); // stopping server_socket
-	close(server_socket); // closing server_socket
-	fclose(logfile);
 	return 0;
 }
