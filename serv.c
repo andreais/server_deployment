@@ -98,12 +98,14 @@ void wait_connections(int server_socket)
 		// if it's child's process, it means a connection is already here. then, waiting for client
 		client_socket = accept(server_socket, (struct sockaddr *) &client_socket_name, &addr_len);
 		creating_client(client_socket, client_socket_name);
+		printf("Connection lost from %s%s%s\n", BOLD, inet_ntoa(client_socket_name.sin_addr), DEFAULT);
 		shutdown(client_socket, 2);
 		close(client_socket);
 	} else {
 		// if it's parent's process, it means no one connected. then, waiting for one
 		client_socket = accept(server_socket, (struct sockaddr *) &client_socket_name, &addr_len);
 		creating_client(client_socket, client_socket_name);
+		printf("Connection lost from %s%s%s\n", BOLD, inet_ntoa(client_socket_name.sin_addr), DEFAULT);
 		shutdown(client_socket, 2);
 		close(client_socket);
 	}
@@ -130,7 +132,6 @@ int main(void)
 
 	while (1) {
 		wait_connections(server_socket);
-		printf("Connection lost\n");
 	}
 	shutdown(server_socket, 2); // stopping server_socket
 	close(server_socket); // closing server_socket
