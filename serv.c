@@ -117,20 +117,14 @@ void wait_connections(int server_socket, FILE* logfile)
 
 void reading_input(int server_socket, FILE* logfile)
 {
-	pid_t pid = fork();
 	char input[256];
 
-	if (pid == 0) {
-		wait_connections(server_socket, logfile);
-	} else {
-		while (fgets(input, sizeof(input), stdin)) {
-			if (strcmp(input, "!q\n") == 0) {
-				kill(pid, SIGKILL);
-				shutdown(server_socket, 2); // stopping server_socket
-				close(server_socket); // closing server_socket
-				fclose(logfile);
-				exit(1);
-			}
+	while (fgets(input, sizeof(input), stdin)) {
+		if (strcmp(input, "!q\n") == 0) {
+			shutdown(server_socket, 2); // stopping server_socket
+			close(server_socket); // closing server_socket
+			fclose(logfile);
+			exit(1);
 		}
 	}
 }
@@ -141,7 +135,9 @@ int main(void)
 	struct sockaddr_in server_socket_name; // struct containing information about the socket
 	int optval = 1;
 	FILE *logfile = fopen("logs.txt", "w");
+	pid_t pid;
 
+	catch_sig();
 	if (!logfile)
 		return 1;
 	if (server_socket < 0)
@@ -157,6 +153,10 @@ int main(void)
 	printf("%s%sServer created.%s\n", GREEN, BOLD, DEFAULT);
 	fprintf(logfile, "Listening on:\t%s:%d\n", LOCAL_HOST, LOCAL_PORT);
 	printf("%sListening on:\t%s:%d%s\n", GREEN, LOCAL_HOST, LOCAL_PORT, DEFAULT);
-	reading_input(server_socket, logfile);
+	pid = fork();
+	if (pid == 0)
+		wait_connections(server_socket, logfile);
+	else
+		reading_input(server_socket, logfile);
 	return 0;
 }
