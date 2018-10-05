@@ -71,6 +71,7 @@
 #define BOLD		"\e[1m"
 
 #include <stdbool.h>
+#include <fcntl.h>
 
 static bool closing = false;
 
@@ -81,7 +82,12 @@ void creating_client(int client_socket, struct sockaddr_in client_socket_name, F
 	* its a generic function to get input from a file descriptor (client_socket) and pretty print it
 	*/
 	char buff[256];
+	int flags;
+	int fd = fileno(logfile);
 
+	flags = fcntl(fd, F_GETFL, 0);
+	flags |= O_NONBLOCK;
+	fcntl(fd, F_SETFL, flags);
 	if (client_socket > 0) {
 		fprintf(logfile, "%s successfully connected\n", inet_ntoa(client_socket_name.sin_addr));
 		printf("%s%s%s successfully connected\n", BOLD, inet_ntoa(client_socket_name.sin_addr), DEFAULT);
@@ -100,12 +106,7 @@ void wait_connections(int server_socket, FILE* logfile)
 	struct sockaddr_in client_socket_name; // struct containing informations on the client_socket
 	unsigned int addr_len = sizeof(struct sockaddr_in); // well, think about it yourself
 
-	printf("test\n");
 	if (pid > 0) {
-		if (closing == true) {
-			kill(pid, SIGKILL);
-			return;
-		}
 		client_socket = accept(server_socket, (struct sockaddr*) &client_socket_name, &addr_len);
 		if ((fork()) != 0)
 			wait_connections(server_socket, logfile);
@@ -138,7 +139,7 @@ void reading_input(int server_socket, FILE* logfile)
 			shutdown(server_socket, 2); // stopping server_socket
 			close(server_socket); // closing server_socket
 			fclose(logfile);
-			exit(1);
+			return;
 		}
 	}
 }
@@ -168,11 +169,9 @@ int main(void)
 	printf("%sListening on:\t%s:%d%s\n", GREEN, LOCAL_HOST, LOCAL_PORT, DEFAULT);
 	pid = fork();
 	if (pid == 0 && closing != true) {
-		wait_connections(server_socket, logfile);
-	} else {
 		reading_input(server_socket, logfile);
-			kill(pid, SIGKILL);
-		return 1;
+	} else {
+		wait_connections(server_socket, logfile);
 	}
 	return 0;
 }
