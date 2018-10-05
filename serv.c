@@ -70,6 +70,10 @@
 #define DEFAULT		"\e[0m"
 #define BOLD		"\e[1m"
 
+#include <stdbool.h>
+
+static bool closing = false;
+
 void creating_client(int client_socket, struct sockaddr_in client_socket_name, FILE* logfile)
 {
 	/**
@@ -97,6 +101,10 @@ void wait_connections(int server_socket, FILE* logfile)
 	unsigned int addr_len = sizeof(struct sockaddr_in); // well, think about it yourself
 
 	if (pid > 0) {
+		if (closing == true) {
+			kill(pid, SIGKILL);
+			return;
+		}
 		client_socket = accept(server_socket, (struct sockaddr*) &client_socket_name, &addr_len);
 		if ((fork()) != 0)
 			wait_connections(server_socket, logfile);
@@ -106,6 +114,8 @@ void wait_connections(int server_socket, FILE* logfile)
 		shutdown(client_socket, 2);
 		close(client_socket);
 	} else {
+		if (closing == true)
+			return;
 		client_socket = accept(server_socket, (struct sockaddr*) &client_socket_name, &addr_len);
 		if ((fork()) != 0)
 			wait_connections(server_socket, logfile);
@@ -127,6 +137,7 @@ void reading_input(int server_socket, FILE* logfile)
 			shutdown(server_socket, 2); // stopping server_socket
 			close(server_socket); // closing server_socket
 			fclose(logfile);
+			closing = true;
 			exit(1);
 		}
 	}
@@ -156,8 +167,8 @@ int main(void)
 	fprintf(logfile, "Listening on:\t%s:%d\n", LOCAL_HOST, LOCAL_PORT);
 	printf("%sListening on:\t%s:%d%s\n", GREEN, LOCAL_HOST, LOCAL_PORT, DEFAULT);
 	pid = fork();
-	while (1) {
-		if (pid == 0)
+	while (!closing) {
+		if (pid == 0 && closing != true)
 			wait_connections(server_socket, logfile);
 		else
 			reading_input(server_socket, logfile);
