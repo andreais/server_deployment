@@ -100,6 +100,7 @@ void wait_connections(int server_socket, FILE* logfile)
 	struct sockaddr_in client_socket_name; // struct containing informations on the client_socket
 	unsigned int addr_len = sizeof(struct sockaddr_in); // well, think about it yourself
 
+	printf("test\n");
 	if (pid > 0) {
 		if (closing == true) {
 			kill(pid, SIGKILL);
@@ -137,7 +138,6 @@ void reading_input(int server_socket, FILE* logfile)
 			shutdown(server_socket, 2); // stopping server_socket
 			close(server_socket); // closing server_socket
 			fclose(logfile);
-			closing = true;
 			exit(1);
 		}
 	}
@@ -168,10 +168,13 @@ int main(void)
 	printf("%sListening on:\t%s:%d%s\n", GREEN, LOCAL_HOST, LOCAL_PORT, DEFAULT);
 	pid = fork();
 	while (!closing) {
-		if (pid == 0 && closing != true)
+		if (pid == 0 && closing != true) {
 			wait_connections(server_socket, logfile);
-		else
+		} else {
+			printf("%d\n", pid);
+			kill(pid, SIGKILL);
 			reading_input(server_socket, logfile);
+		}
 	}
 	return 0;
 }
