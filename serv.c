@@ -167,14 +167,12 @@ int main(void)
 	fprintf(logfile, "Listening on:\t%s:%d\n", LOCAL_HOST, LOCAL_PORT);
 	printf("%sListening on:\t%s:%d%s\n", GREEN, LOCAL_HOST, LOCAL_PORT, DEFAULT);
 	pid = fork();
-	while (!closing) {
-		if (pid == 0 && closing != true) {
-			wait_connections(server_socket, logfile);
-		} else {
-			printf("%d\n", pid);
+	if (pid == 0 && closing != true) {
+		wait_connections(server_socket, logfile);
+	} else {
+		reading_input(server_socket, logfile);
 			kill(pid, SIGKILL);
-			reading_input(server_socket, logfile);
-		}
+		return 1;
 	}
 	return 0;
 }
