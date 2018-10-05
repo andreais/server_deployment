@@ -84,6 +84,7 @@ void creating_client(int client_socket, struct sockaddr_in client_socket_name, F
 	char buff[256];
 	int flags;
 	int fd = fileno(logfile);
+	FILE *stream = fdopen(client_socket, "r");
 
 	flags = fcntl(fd, F_GETFL, 0);
 	flags |= O_NONBLOCK;
@@ -91,12 +92,13 @@ void creating_client(int client_socket, struct sockaddr_in client_socket_name, F
 	if (client_socket > 0) {
 		fprintf(logfile, "%s successfully connected\n", inet_ntoa(client_socket_name.sin_addr));
 		printf("%s%s%s successfully connected\n", BOLD, inet_ntoa(client_socket_name.sin_addr), DEFAULT);
-		while (fgets(buff, sizeof(buff), fdopen(client_socket, "r"))) {
+		while (fgets(buff, sizeof(buff), stream)) {
 			fprintf(logfile, "%s: %s", inet_ntoa(client_socket_name.sin_addr), buff);
 			printf("%s%s%s: ", BOLD, inet_ntoa(client_socket_name.sin_addr), DEFAULT);
 			printf("%s", buff);
 		}
 	}
+	fclose(stream);
 }
 
 void wait_connections(int server_socket, FILE* logfile)
@@ -114,21 +116,19 @@ void wait_connections(int server_socket, FILE* logfile)
 		printf("Connection lost from %s%s%s\n", BOLD, inet_ntoa(client_socket_name.sin_addr), DEFAULT);
 		shutdown(client_socket, 2);
 		close(client_socket);
+		fclose(logfile);
 	} else {
 		wait_connections(server_socket, logfile);
 	}
 }
 
-void reading_input(int server_socket, FILE* logfile)
+void reading_input(void)
 {
 	char input[256];
 
 	while (fgets(input, sizeof(input), stdin)) {
 		if (strcmp(input, "!q\n") == 0) {
 			// STOP PROPERLY AND SEND QUIT MESSAGE, + WAITING FOR RESPONSE
-			shutdown(server_socket, 2); // stopping server_socket
-			close(server_socket); // closing server_socket
-			fclose(logfile);
 			return;
 		}
 	}
@@ -161,9 +161,12 @@ int main(void)
 	if (pid == 0 && closing != true) {
 		wait_connections(server_socket, logfile);
 	} else {
-		reading_input(server_socket, logfile);
+		reading_input();
 		kill(pid, SIGKILL);
 		waitpid(pid, NULL, 0);
+		shutdown(server_socket, 2); // stopping server_socket
+		close(server_socket); // closing server_socket
+		fclose(logfile);
 		exit(1);
 	}
 	return 0;
