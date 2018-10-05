@@ -101,31 +101,21 @@ void creating_client(int client_socket, struct sockaddr_in client_socket_name, F
 
 void wait_connections(int server_socket, FILE* logfile)
 {
-	pid_t pid = fork();
 	int client_socket;
 	struct sockaddr_in client_socket_name; // struct containing informations on the client_socket
 	unsigned int addr_len = sizeof(struct sockaddr_in); // well, think about it yourself
-
-	if (pid > 0) {
-		client_socket = accept(server_socket, (struct sockaddr*) &client_socket_name, &addr_len);
-		if ((fork()) != 0)
-			wait_connections(server_socket, logfile);
+	pid_t pid;
+	
+	client_socket = accept(server_socket, (struct sockaddr*) &client_socket_name, &addr_len);
+	pid = fork();
+	if (pid == 0) {
 		creating_client(client_socket, client_socket_name, logfile);
 		fprintf(logfile, "Connection lost from %s\n", inet_ntoa(client_socket_name.sin_addr));
 		printf("Connection lost from %s%s%s\n", BOLD, inet_ntoa(client_socket_name.sin_addr), DEFAULT);
 		shutdown(client_socket, 2);
 		close(client_socket);
 	} else {
-		if (closing == true)
-			return;
-		client_socket = accept(server_socket, (struct sockaddr*) &client_socket_name, &addr_len);
-		if ((fork()) != 0)
-			wait_connections(server_socket, logfile);
-		creating_client(client_socket, client_socket_name, logfile);
-		fprintf(logfile, "Connection lost from %s\n", inet_ntoa(client_socket_name.sin_addr));
-		printf("Connection lost from %s%s%s\n", BOLD, inet_ntoa(client_socket_name.sin_addr), DEFAULT);
-		shutdown(client_socket, 2);
-		close(client_socket);
+		wait_connections(server_socket, logfile);
 	}
 }
 
@@ -169,9 +159,12 @@ int main(void)
 	printf("%sListening on:\t%s:%d%s\n", GREEN, LOCAL_HOST, LOCAL_PORT, DEFAULT);
 	pid = fork();
 	if (pid == 0 && closing != true) {
-		reading_input(server_socket, logfile);
-	} else {
 		wait_connections(server_socket, logfile);
+	} else {
+		reading_input(server_socket, logfile);
+		kill(pid, SIGKILL);
+		waitpid(pid, NULL, 0);
+		exit(1);
 	}
 	return 0;
 }
