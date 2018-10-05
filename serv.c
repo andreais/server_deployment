@@ -91,22 +91,24 @@ void creating_client(int client_socket, struct sockaddr_in client_socket_name, F
 
 void wait_connections(int server_socket, FILE* logfile)
 {
-	pid_t pid = fork(); // forking
+	pid_t pid = fork();
 	int client_socket;
 	struct sockaddr_in client_socket_name; // struct containing informations on the client_socket
 	unsigned int addr_len = sizeof(struct sockaddr_in); // well, think about it yourself
 
-	if (pid == 0) {
-		// if it's child's process, it means a connection is already here. then, waiting for client
-		client_socket = accept(server_socket, (struct sockaddr *) &client_socket_name, &addr_len);
+	if (pid > 0) {
+		client_socket = accept(server_socket, (struct sockaddr*) &client_socket_name, &addr_len);
+		if ((fork()) != 0)
+			wait_connections(server_socket, logfile);
 		creating_client(client_socket, client_socket_name, logfile);
 		fprintf(logfile, "Connection lost from %s\n", inet_ntoa(client_socket_name.sin_addr));
 		printf("Connection lost from %s%s%s\n", BOLD, inet_ntoa(client_socket_name.sin_addr), DEFAULT);
 		shutdown(client_socket, 2);
 		close(client_socket);
 	} else {
-		// if it's parent's process, it means no one connected. then, waiting for one
-		client_socket = accept(server_socket, (struct sockaddr *) &client_socket_name, &addr_len);
+		client_socket = accept(server_socket, (struct sockaddr*) &client_socket_name, &addr_len);
+		if ((fork()) != 0)
+			wait_connections(server_socket, logfile);
 		creating_client(client_socket, client_socket_name, logfile);
 		fprintf(logfile, "Connection lost from %s\n", inet_ntoa(client_socket_name.sin_addr));
 		printf("Connection lost from %s%s%s\n", BOLD, inet_ntoa(client_socket_name.sin_addr), DEFAULT);
@@ -121,6 +123,7 @@ void reading_input(int server_socket, FILE* logfile)
 
 	while (fgets(input, sizeof(input), stdin)) {
 		if (strcmp(input, "!q\n") == 0) {
+			// STOP PROPERLY AND SEND QUIT MESSAGE, + WAITING FOR RESPONSE
 			shutdown(server_socket, 2); // stopping server_socket
 			close(server_socket); // closing server_socket
 			fclose(logfile);
@@ -137,7 +140,6 @@ int main(void)
 	FILE *logfile = fopen("logs.txt", "w");
 	pid_t pid;
 
-	catch_sig();
 	if (!logfile)
 		return 1;
 	if (server_socket < 0)
@@ -154,9 +156,11 @@ int main(void)
 	fprintf(logfile, "Listening on:\t%s:%d\n", LOCAL_HOST, LOCAL_PORT);
 	printf("%sListening on:\t%s:%d%s\n", GREEN, LOCAL_HOST, LOCAL_PORT, DEFAULT);
 	pid = fork();
-	if (pid == 0)
-		wait_connections(server_socket, logfile);
-	else
-		reading_input(server_socket, logfile);
+	while (1) {
+		if (pid == 0)
+			wait_connections(server_socket, logfile);
+		else
+			reading_input(server_socket, logfile);
+	}
 	return 0;
 }
