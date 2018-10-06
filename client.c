@@ -95,6 +95,7 @@ int main(int ac, char **av)
 			buff[strlen(buff) + 1] = '\0';
 			strcat(buff, "\n");
 			write(client_socket, buff, strlen(buff));
+			free(buff);
 		}
 	}
 	shutdown(client_socket, 2);
