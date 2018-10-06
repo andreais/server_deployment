@@ -59,6 +59,7 @@ void read_text(poll_collector *sockets, int index)
 		close(sockets->fds[index].fd);
 		sockets->fds_n--;
 		printf("%s DISCONNECTED\n", sockets->name[index]);
+		return;
 	}
 	printf("%s SAYS: %s", sockets->name[index], buff);
 }
