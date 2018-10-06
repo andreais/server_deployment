@@ -50,7 +50,7 @@ void push_back(poll_collector *sockets, client_socket const *tmp)
 
 void read_text(poll_collector *sockets, int index)
 {
-	char buff[256];
+	char buff[256] = {'\0'};
 	int ret;
 
 	ret = recv(sockets->fds[index].fd, buff, sizeof(buff), 0);
@@ -60,8 +60,8 @@ void read_text(poll_collector *sockets, int index)
 		sockets->fds_n--;
 		printf("%s DISCONNECTED\n", sockets->name[index]);
 		return;
-	}
-	printf("%s SAYS: %s", sockets->name[index], buff);
+	} else
+		printf("%s SAYS: %s", sockets->name[index], buff);
 }
 
 void find_socket(poll_collector *sockets)
