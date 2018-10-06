@@ -2,4 +2,4 @@ client
 serv
 *.o
 logs.txt
-.gitignore
+vgcore*
