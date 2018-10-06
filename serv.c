@@ -9,12 +9,9 @@
 #include <netinet/in.h>
 #include <stdbool.h>
 #include <fcntl.h>
+#include <poll.h>
 
-#define LOCAL_PORT 10000
-#define LOCAL_HOST "127.0.0.1"
-#define GREEN		"\e[32m"
-#define DEFAULT		"\e[0m"
-#define BOLD		"\e[1m"
+#include "serv.h"
 
 void reading_input(void)
 {
@@ -23,6 +20,31 @@ void reading_input(void)
 	while (fgets(input, sizeof(input), stdin)) {
 		if (strcmp(input, "!q\n") == 0) {
 			return;
+		}
+	}
+}
+
+void push_tmp(poll_collector *socket, client_socket const *tmp)
+{
+	socket->fds_n++;
+	if (!(realloc(socket, sizeof(poll_collector) * socket->fds_n)))
+		exit(EXIT_FAILURE);
+	socket->fds[socket->fds_n - 2].fd = tmp->fd;
+	socket->name[socket->fds_n - 2] = strdup(inet_ntoa(tmp->socket_name.sin_addr));
+}
+
+void wait_connections(int server_socket)
+{
+	struct pollfd fds[1];
+	client_socket tmp;
+	int ret;
+
+	fds[0].fd = server_socket;
+	fds[0].events = POLLIN;
+	while (1) {
+		ret = poll(fds, 1, 5);
+		if (fds[0].revents & POLLIN) {
+			printf("OK\n");
 		}
 	}
 }
@@ -47,7 +69,9 @@ int main(void)
 	printf("%s%sServer created.%s\n", GREEN, BOLD, DEFAULT);
 	printf("%sListening on:\t%s:%d%s\n", GREEN, LOCAL_HOST, LOCAL_PORT, DEFAULT);
 
-	if (pid == 0 && closing != true) {
+	pid = fork();
+	if (pid == 0) {
+		wait_connections(server_socket);
 	} else {
 		reading_input();
 		kill(pid, SIGKILL);
