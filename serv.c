@@ -51,8 +51,8 @@ void wait_connections(int server_socket)
 
 int main(void)
 {
-	int server_socket = socket(PF_INET, SOCK_STREAM, 0); // opening a socket
-	struct sockaddr_in server_socket_name; // struct containing information about the socket
+	int server_socket = socket(PF_INET, SOCK_STREAM, 0);
+	struct sockaddr_in server_socket_name;
 	int optval = 1;
 	FILE *logfile = fopen("logs.txt", "w");
 	pid_t pid;
