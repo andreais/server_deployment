@@ -62,8 +62,8 @@
 #define DEFAULT		"\e[0m"
 
 #define SERVER_PORT	10000
-#define SERVER_HOST	"206.189.26.6"
-//#define SERVER_HOST	"127.0.0.1"
+//#define SERVER_HOST	"206.189.26.6"
+#define SERVER_HOST	"127.0.0.1"
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -74,9 +74,14 @@ int main(int ac, char **av)
 {
 	int client_socket = socket(PF_INET, SOCK_STREAM, 0);
 	struct sockaddr_in client_socket_name;
+	char *buff;
+	char *nickname = malloc(sizeof(char) * strlen(av[1]) + 2);
 
+	strcpy(nickname, av[1]);
+	strcat(nickname, "\n");
 	if (ac == 1) {
-		printf("%sCareful%s ! You're entering free mode.\n", BOLD, DEFAULT);
+		printf("Usage:\n\t./client [nickname]\n");
+		return 2;
 	}
 	memset((char *) &client_socket_name, 0, sizeof(struct sockaddr_in));
 	client_socket_name.sin_family = AF_INET;
@@ -85,17 +90,14 @@ int main(int ac, char **av)
 
 	connect(client_socket, (struct sockaddr *) &client_socket_name,
 		sizeof(struct sockaddr_in));
-	if (ac > 1) {
-		write(client_socket, av[1], strlen(av[1]));
-		write(client_socket, "\n", 1);
-	} else {
-		char *buff;
-		while ((buff = get_next_line(0)) != NULL) {
-			buff = realloc(buff, sizeof(char) * strlen(buff) + 2);
-			buff[strlen(buff) + 1] = '\0';
-			strcat(buff, "\n");
-			write(client_socket, buff, strlen(buff));
-		}
+	write(client_socket, nickname, strlen(nickname));
+	free(nickname);
+	while ((buff = get_next_line(0)) != NULL) {
+		buff = realloc(buff, sizeof(char) * strlen(buff) + 2);
+		buff[strlen(buff) + 1] = '\0';
+		strcat(buff, "\n");
+		write(client_socket, buff, strlen(buff));
+		free(buff);
 	}
 	shutdown(client_socket, 2);
 	close(client_socket);

@@ -4,6 +4,7 @@
 #pragma once
 
 #include <sys/socket.h>
+#include <stdbool.h>
 
 #define LOCAL_PORT	10000
 #define LOCAL_HOST	"127.0.0.1"
@@ -15,6 +16,7 @@ typedef struct {
 	struct pollfd *fds;
 	unsigned int fds_n;
 	char **name;
+	bool *first_data;
 } poll_collector;
 
 typedef struct {

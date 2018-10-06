@@ -31,6 +31,7 @@ poll_collector create_poll(int server_socket)
 	sockets.fds = malloc(sizeof(struct pollfd) * 1);
 	sockets.fds_n = 1;
 	sockets.name = malloc(sizeof(char *) * 1);
+	sockets.first_data = malloc(sizeof(bool) * 1);
 	sockets.fds[0].fd = server_socket;
 	sockets.fds[0].events = POLLIN;
 	sockets.name[0] = strdup("SERVER");
@@ -41,10 +42,12 @@ void push_back(poll_collector *sockets, client_socket const *tmp)
 {
 	sockets->fds = realloc(sockets->fds, sizeof(struct pollfd) * (sockets->fds_n + 1));
 	sockets->name = realloc(sockets->name, sizeof(char *) * (sockets->fds_n + 1));
+	sockets->first_data = realloc(sockets->first_data, sizeof(bool) * (sockets->fds_n + 1));
 	sockets->fds_n++;
 	sockets->fds[sockets->fds_n - 1].fd = tmp->fd;
 	sockets->fds[sockets->fds_n - 1].events = POLLIN;
 	sockets->name[sockets->fds_n - 1] = strdup(inet_ntoa(tmp->socket_name.sin_addr));
+	sockets->first_data[sockets->fds_n - 1] = true;
 
 }
 
@@ -54,6 +57,13 @@ void read_text(poll_collector *sockets, int index)
 	int ret;
 
 	ret = recv(sockets->fds[index].fd, buff, sizeof(buff), MSG_DONTWAIT);
+	if (sockets->first_data[index] == true) {
+		sockets->first_data[index] = false;
+		free(sockets->name[index]);
+		sockets->name[index] = strndup(buff, strlen(buff) - 1);
+		printf("%s CONNECTED\n", sockets->name[index]);
+		return;
+	}
 	if (ret == 0) {
 		shutdown(sockets->fds[index].fd, 2);
 		close(sockets->fds[index].fd);
