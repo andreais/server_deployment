@@ -53,7 +53,7 @@ void read_text(poll_collector *sockets, int index)
 	char buff[256] = {'\0'};
 	int ret;
 
-	ret = recv(sockets->fds[index].fd, buff, sizeof(buff), 0);
+	ret = recv(sockets->fds[index].fd, buff, sizeof(buff), MSG_DONTWAIT);
 	if (ret == 0) {
 		shutdown(sockets->fds[index].fd, 2);
 		close(sockets->fds[index].fd);
