@@ -100,7 +100,6 @@ int main(void)
 	int server_socket = socket(PF_INET, SOCK_STREAM, 0);
 	struct sockaddr_in server_socket_name;
 	int optval = 1;
-	FILE *logfile = fopen("logs.txt", "w");
 	pid_t pid;
 
 	if (server_socket < 0)
@@ -124,7 +123,6 @@ int main(void)
 		waitpid(pid, NULL, 0);
 		shutdown(server_socket, 2); // stopping server_socket
 		close(server_socket); // closing server_socket
-		fclose(logfile);
 		exit(1);
 	}
 	return 0;
