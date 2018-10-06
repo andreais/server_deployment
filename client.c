@@ -62,8 +62,8 @@
 #define DEFAULT		"\e[0m"
 
 #define SERVER_PORT	10000
-//#define SERVER_HOST	"206.189.26.6"
-#define SERVER_HOST	"127.0.0.1"
+#define SERVER_HOST	"206.189.26.6"
+//#define SERVER_HOST	"127.0.0.1"
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -91,8 +91,10 @@ int main(int ac, char **av)
 	} else {
 		char *buff;
 		while ((buff = get_next_line(0)) != NULL) {
+			buff = realloc(buff, sizeof(char) * strlen(buff) + 2);
+			buff[strlen(buff) + 1] = '\0';
+			strcat(buff, "\n");
 			write(client_socket, buff, strlen(buff));
-			write(client_socket, "\n", 1);
 		}
 	}
 	shutdown(client_socket, 2);

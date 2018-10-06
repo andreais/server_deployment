@@ -43,8 +43,35 @@ void push_back(poll_collector *sockets, client_socket const *tmp)
 	sockets->name = realloc(sockets->name, sizeof(char *) * (sockets->fds_n + 1));
 	sockets->fds_n++;
 	sockets->fds[sockets->fds_n - 1].fd = tmp->fd;
+	sockets->fds[sockets->fds_n - 1].events = POLLIN;
 	sockets->name[sockets->fds_n - 1] = strdup(inet_ntoa(tmp->socket_name.sin_addr));
 
+}
+
+void read_text(poll_collector *sockets, int index)
+{
+	char buff[256] = {'\0'};
+	int ret;
+
+	ret = recv(sockets->fds[index].fd, buff, sizeof(buff), MSG_DONTWAIT);
+	if (ret == 0) {
+		shutdown(sockets->fds[index].fd, 2);
+		close(sockets->fds[index].fd);
+		sockets->fds_n--;
+		printf("%s DISCONNECTED\n", sockets->name[index]);
+		return;
+	} else
+		printf("%s SAYS: %s", sockets->name[index], buff);
+}
+
+void find_socket(poll_collector *sockets)
+{
+	for (unsigned int i = 1; i < sockets->fds_n; i++) {
+		if (sockets->fds[i].revents & POLLIN) {
+			printf("GOT DATA FROM %s\n", sockets->name[i]);
+			read_text(sockets, i);
+		}
+	}
 }
 
 void wait_connections(int server_socket)
@@ -55,14 +82,15 @@ void wait_connections(int server_socket)
 
 	tmp.addr_len = sizeof(struct sockaddr_in);
 	while (1) {
-		ret = poll(sockets.fds, 1, 5);
+		ret = poll(sockets.fds, sockets.fds_n, 5);
 		if (ret == -1)
 			exit(1);
+		if (ret > 0)
+			find_socket(&sockets);
 		if (sockets.fds[0].revents & POLLIN) {
 			tmp.fd = accept(server_socket, (struct sockaddr *) &tmp.socket_name, &tmp.addr_len);
 			push_back(&sockets, &tmp);
-			printf("%s\n", sockets.name[0]);
-			printf("%s\n", sockets.name[1]);
+			printf("NEW CONNECTION\n");
 		}
 	}
 }
