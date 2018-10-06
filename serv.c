@@ -24,27 +24,45 @@ void reading_input(void)
 	}
 }
 
-void push_tmp(poll_collector *socket, client_socket const *tmp)
+poll_collector create_poll(int server_socket)
 {
-	socket->fds_n++;
-	if (!(realloc(socket, sizeof(poll_collector) * socket->fds_n)))
-		exit(EXIT_FAILURE);
-	socket->fds[socket->fds_n - 2].fd = tmp->fd;
-	socket->name[socket->fds_n - 2] = strdup(inet_ntoa(tmp->socket_name.sin_addr));
+	poll_collector sockets;
+
+	sockets.fds = malloc(sizeof(struct pollfd) * 1);
+	sockets.fds_n = 1;
+	sockets.name = malloc(sizeof(char *) * 1);
+	sockets.fds[0].fd = server_socket;
+	sockets.fds[0].events = POLLIN;
+	sockets.name[0] = strdup("SERVER");
+	return sockets;
+}
+
+void push_back(poll_collector *sockets, client_socket const *tmp)
+{
+	sockets->fds = realloc(sockets->fds, sizeof(struct pollfd) * (sockets->fds_n + 1));
+	sockets->name = realloc(sockets->name, sizeof(char *) * (sockets->fds_n + 1));
+	sockets->fds_n++;
+	sockets->fds[sockets->fds_n - 1].fd = tmp->fd;
+	sockets->name[sockets->fds_n - 1] = strdup(inet_ntoa(tmp->socket_name.sin_addr));
+
 }
 
 void wait_connections(int server_socket)
 {
-	struct pollfd fds[1];
-	client_socket tmp;
+	poll_collector sockets = create_poll(server_socket);
+	client_socket tmp = {0};
 	int ret;
 
-	fds[0].fd = server_socket;
-	fds[0].events = POLLIN;
+	tmp.addr_len = sizeof(struct sockaddr_in);
 	while (1) {
-		ret = poll(fds, 1, 5);
-		if (fds[0].revents & POLLIN) {
-			printf("OK\n");
+		ret = poll(sockets.fds, 1, 5);
+		if (ret == -1)
+			exit(1);
+		if (sockets.fds[0].revents & POLLIN) {
+			tmp.fd = accept(server_socket, (struct sockaddr *) &tmp.socket_name, &tmp.addr_len);
+			push_back(&sockets, &tmp);
+			printf("%s\n", sockets.name[0]);
+			printf("%s\n", sockets.name[1]);
 		}
 	}
 }
