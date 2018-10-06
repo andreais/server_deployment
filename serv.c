@@ -51,9 +51,15 @@ void push_back(poll_collector *sockets, client_socket const *tmp)
 void read_text(poll_collector *sockets, int index)
 {
 	char buff[256];
-	FILE *stream = fdopen(sockets->fds[index].fd, "r");
+	int ret;
 
-	fgets(buff, sizeof(buff), stream);
+	ret = recv(sockets->fds[index].fd, buff, sizeof(buff), 0);
+	if (ret == 0) {
+		shutdown(sockets->fds[index].fd, 2);
+		close(sockets->fds[index].fd);
+		sockets->fds_n--;
+		printf("%s DISCONNECTED\n", sockets->name[index]);
+	}
 	printf("%s SAYS: %s", sockets->name[index], buff);
 }
 
@@ -61,7 +67,7 @@ void find_socket(poll_collector *sockets)
 {
 	for (unsigned int i = 1; i < sockets->fds_n; i++) {
 		if (sockets->fds[i].revents & POLLIN) {
-			printf("GOT TEXT FROM %s\n", sockets->name[i]);
+			printf("GOT DATA FROM %s\n", sockets->name[i]);
 			read_text(sockets, i);
 		}
 	}
