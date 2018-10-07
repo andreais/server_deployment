@@ -67,6 +67,45 @@
 
 #include <stdlib.h>
 #include <unistd.h>
+#include <poll.h>
+#include <stdbool.h>
+
+static bool closed = false;
+
+int recv_data(int socket)
+{
+	char buff[256] = {'\0'};
+	int ret = recv(socket, buff, sizeof(buff), MSG_DONTWAIT);
+	
+	if (ret == 0) {
+		printf("SERVER CLOSED\n");
+		closed = true;
+		exit(1);
+	} else if (ret > 0) {
+		printf("%s", buff);
+	}
+	if (strcmp(buff, "CONNECTED\n") == 0)
+		return 1;
+	return 0;
+}
+
+void read_server(int socket, char *nickname)
+{
+	struct pollfd sockfd[1];
+	int ret;
+
+	sockfd[0].fd = socket;
+	sockfd[0].events = POLLIN | POLLOUT;
+	while (1) {
+		ret = poll(sockfd, 1, 5);
+		if (ret > 0) {
+			if (sockfd[0].revents & POLLIN)
+				if (recv_data(socket))
+					write(socket, nickname, strlen(nickname));
+		}
+	}
+	free(nickname);
+}
 
 int main(int ac, char **av)
 {
@@ -74,6 +113,7 @@ int main(int ac, char **av)
 	struct sockaddr_in client_socket_name;
 	char buff[256];
 	char *nickname;
+	pid_t pid;
 
 	if (ac == 1) {
 		printf("Usage:\n\t./client [nickname]\n");
@@ -88,10 +128,13 @@ int main(int ac, char **av)
 	inet_aton(SERVER_HOST, &client_socket_name.sin_addr);
 	connect(client_socket, (struct sockaddr *) &client_socket_name,
 		sizeof(struct sockaddr_in));
-	write(client_socket, nickname, strlen(nickname));
-	free(nickname);
-	while ((fgets(buff, sizeof(buff), stdin)) != NULL) {
-		write(client_socket, buff, strlen(buff));
+	pid = fork();
+	if (pid == 0) {
+		read_server(client_socket, nickname);
+	} else {
+		while (closed == false && (fgets(buff, sizeof(buff), stdin)) != NULL) {
+			write(client_socket, buff, strlen(buff));
+		}
 	}
 	shutdown(client_socket, 2);
 	close(client_socket);

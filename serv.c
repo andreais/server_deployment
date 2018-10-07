@@ -40,18 +40,41 @@ poll_collector create_poll(int server_socket)
 
 void push_back(poll_collector *sockets, client_socket const *tmp)
 {
-	sockets->fds = realloc(sockets->fds, sizeof(struct pollfd) * (sockets->fds_n + 1));
-	sockets->name = realloc(sockets->name, sizeof(char *) * (sockets->fds_n + 1));
-	sockets->first_data = realloc(sockets->first_data, sizeof(bool) * (sockets->fds_n + 1));
+	char *address = inet_ntoa(tmp->socket_name.sin_addr);
+	char *connected = "CONNECTED\n";
+
 	sockets->fds_n++;
+
+	printf("%d\n", sockets->fds_n);
+	sockets->name = realloc(sockets->name, sizeof(char *) * sockets->fds_n + 1);
+	sockets->name[sockets->fds_n - 1] = malloc(sizeof(char) * (strlen(address) + 1));
+	strcpy(sockets->name[sockets->fds_n - 1], address);
+
+	sockets->fds = realloc(sockets->fds, sizeof(struct pollfd) * sockets->fds_n);
 	sockets->fds[sockets->fds_n - 1].fd = tmp->fd;
 	sockets->fds[sockets->fds_n - 1].events = POLLIN;
-	sockets->name[sockets->fds_n - 1] = strdup(inet_ntoa(tmp->socket_name.sin_addr));
+
+	sockets->first_data = realloc(sockets->first_data, sizeof(bool) * (sockets->fds_n));
 	sockets->first_data[sockets->fds_n - 1] = true;
 
+	write(sockets->fds[sockets->fds_n - 1].fd, connected, strlen(connected));
 }
 
-void read_text(poll_collector *sockets, int index)
+void socket_pop(poll_collector *sockets, int index)
+{
+	shutdown(sockets->fds[index].fd, 2);
+	close(sockets->fds[index].fd);
+	if ((unsigned int) index < (sockets->fds_n - 1)) {
+		for (unsigned int i = index; i < (sockets->fds_n - 1); i++) {
+			sockets->fds[i] = sockets->fds[i + 1];
+			sockets->name[i] = sockets->name[i + 1];
+		}
+	}
+	sockets->fds_n--;
+	free(sockets->name[index]);
+}
+
+char *read_text(poll_collector *sockets, int index)
 {
 	char buff[256] = {'\0'};
 	int ret;
@@ -62,24 +85,46 @@ void read_text(poll_collector *sockets, int index)
 		free(sockets->name[index]);
 		sockets->name[index] = strndup(buff, strlen(buff) - 1);
 		printf("%s CONNECTED\n", sockets->name[index]);
-		return;
+		return NULL;
 	}
 	if (ret == 0) {
-		shutdown(sockets->fds[index].fd, 2);
-		close(sockets->fds[index].fd);
-		sockets->fds_n--;
 		printf("%s DISCONNECTED\n", sockets->name[index]);
-		return;
-	} else
-		printf("%s SAYS: %s", sockets->name[index], buff);
+		socket_pop(sockets, index);
+		return NULL;
+	}
+	char *cpy_buff = strdup(buff);
+	return cpy_buff;
 }
 
 void find_socket(poll_collector *sockets)
 {
-	for (unsigned int i = 1; i < sockets->fds_n; i++) {
+	char *buff = NULL;
+	unsigned int i = 1;
+	client_socket tmp = {0};
+	
+	tmp.addr_len = sizeof(struct sockaddr_in);
+	if (sockets->fds[0].revents & POLLIN) {
+		tmp.fd = accept(sockets->fds[0].fd, (struct sockaddr *) &tmp.socket_name, &tmp.addr_len);
+		push_back(sockets, &tmp);
+		printf("NEW CONNECTION\n");
+		return;
+	}
+	for (; i < sockets->fds_n; i++) {
 		if (sockets->fds[i].revents & POLLIN) {
-			printf("GOT DATA FROM %s\n", sockets->name[i]);
-			read_text(sockets, i);
+			printf("%sGOT DATA FROM %s%s\n", BOLD, sockets->name[i], DEFAULT);
+			buff = read_text(sockets, i);
+			if (buff != NULL) {
+				printf("%s SAYS %s", sockets->name[i], buff);
+				break;
+			} else
+				return;
+		}
+	}
+	printf("test\n");
+	for (unsigned int j = 1; j < sockets->fds_n; j++) {
+		if (j != i) {
+			dprintf(sockets->fds[j].fd, "%s:", sockets->name[i]);
+			dprintf(sockets->fds[j].fd, "%s", buff);
 		}
 	}
 }
@@ -87,21 +132,14 @@ void find_socket(poll_collector *sockets)
 void wait_connections(int server_socket)
 {
 	poll_collector sockets = create_poll(server_socket);
-	client_socket tmp = {0};
 	int ret;
 
-	tmp.addr_len = sizeof(struct sockaddr_in);
 	while (1) {
 		ret = poll(sockets.fds, sockets.fds_n, 5);
 		if (ret == -1)
 			exit(1);
 		if (ret > 0)
 			find_socket(&sockets);
-		if (sockets.fds[0].revents & POLLIN) {
-			tmp.fd = accept(server_socket, (struct sockaddr *) &tmp.socket_name, &tmp.addr_len);
-			push_back(&sockets, &tmp);
-			printf("NEW CONNECTION\n");
-		}
 	}
 }
 
