@@ -8,11 +8,7 @@ CC		=	gcc
 
 CFLAGS		+=	-I $(DIRINC)	\
 			-Wall -Wextra -W	\
-			-g
-
-LDFLAGS		+=	-lm
-
-DIRLIB		+=	lib/
+			-g -lncurses
 
 DIRSRC		+=	.	
 
@@ -28,9 +24,8 @@ EXEC		=	project
 all:		$(EXEC)
 
 $(EXEC):	$(OBJ)
-		$(CC) -o client client.o
+		$(CC) -o client client.o $(CFLAGS)
 		$(CC) -o serv serv.o
-
 clean:
 		rm -f *.o
 
