@@ -134,6 +134,7 @@ int main(int ac, char **av)
 	} else {
 		while (closed == false && (fgets(buff, sizeof(buff), stdin)) != NULL) {
 			write(client_socket, buff, strlen(buff));
+			free(buff);
 		}
 	}
 	shutdown(client_socket, 2);
