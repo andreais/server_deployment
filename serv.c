@@ -121,8 +121,7 @@ void find_socket(poll_collector *sockets)
 	}
 	for (unsigned int j = 1; j < sockets->fds_n; j++) {
 		if (j != i) {
-			dprintf(sockets->fds[j].fd, "%s:", sockets->name[i]);
-			dprintf(sockets->fds[j].fd, "%s", buff);
+			dprintf(sockets->fds[j].fd, "%s:%s", sockets->name[i], buff);
 		}
 	}
 }

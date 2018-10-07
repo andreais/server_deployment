@@ -73,24 +73,24 @@
 
 static bool closed = false;
 
-int recv_data(int socket)
+int recv_data(int socket, int pipeCP[2])
 {
 	char buff[256] = {'\0'};
 	int ret = recv(socket, buff, sizeof(buff), MSG_DONTWAIT);
 	
+	if (strcmp(buff, "CONNECTED\n") == 0)
+		return 1;
 	if (ret == 0) {
 		printf("SERVER CLOSED\n");
 		closed = true;
 		exit(1);
 	} else if (ret > 0) {
-		printf("%s", buff);
+		dprintf(pipeCP[1], "%s", buff);
 	}
-	if (strcmp(buff, "CONNECTED\n") == 0)
-		return 1;
 	return 0;
 }
 
-void read_server(int socket, char *nickname)
+void read_server(int socket, char *nickname, int pipeCP[2])
 {
 	struct pollfd sockfd[1];
 	int ret;
@@ -101,9 +101,44 @@ void read_server(int socket, char *nickname)
 		ret = poll(sockfd, 1, 5);
 		if (ret > 0) {
 			if (sockfd[0].revents & POLLIN)
-				if (recv_data(socket)) {
+				if (recv_data(socket, pipeCP)) {
 					write(socket, nickname, strlen(nickname));
 				}
+		}
+	}
+}
+
+void read_client(int socket, int pipeCP[2])
+{
+	struct pollfd sockfd[2];
+	int ret;
+	char buff[256], in[256];
+	int pipeSTD[2];
+	pid_t pid;
+
+	pipe(pipeSTD);
+	sockfd[0].fd = pipeSTD[0];
+	sockfd[0].events = POLLIN;
+	sockfd[1].fd = pipeCP[0];
+	sockfd[1].events = POLLIN;
+	if ((pid = fork()) == 0) {
+		while ((fgets(in, sizeof(in), stdin)))
+			write(pipeSTD[1], in, sizeof(in));
+		write(pipeSTD[1], "\0", 1);
+	} else {
+		while (1) {
+			ret = poll(sockfd, 2, 5);
+			if (ret > 0) {
+				if (sockfd[0].revents & POLLIN) {
+					if ((read(sockfd[0].fd, in, sizeof(in))) < (unsigned) sizeof(in))
+						return;
+					write(socket, in, sizeof(in));
+				}
+				if (sockfd[1].revents & POLLIN) {
+					read(sockfd[1].fd, buff, sizeof(buff));
+					printf("%s", buff);
+				}
+			}
 		}
 	}
 }
@@ -112,10 +147,12 @@ int main(int ac, char **av)
 {
 	int client_socket = socket(PF_INET, SOCK_STREAM, 0);
 	struct sockaddr_in client_socket_name;
-	char buff[256];
 	char *nickname;
 	pid_t pid;
+	// CHILD -> PARENT
+	int pipeCP[2];
 
+	pipe(pipeCP);
 	if (ac == 1) {
 		printf("Usage:\n\t./client [nickname]\n");
 		return 2;
@@ -131,11 +168,14 @@ int main(int ac, char **av)
 		sizeof(struct sockaddr_in));
 	pid = fork();
 	if (pid == 0) {
-		read_server(client_socket, nickname);
+		read_server(client_socket, nickname, pipeCP);
 	} else {
+		read_client(client_socket, pipeCP);
+		/**
 		while (closed == false && (fgets(buff, sizeof(buff), stdin)) != NULL) {
 			write(client_socket, buff, strlen(buff));
 		}
+		**/
 		kill(pid, SIGKILL);
 	}
 	free(nickname);
