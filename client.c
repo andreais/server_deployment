@@ -69,6 +69,7 @@
 #include <unistd.h>
 #include <poll.h>
 #include <stdbool.h>
+#include <signal.h>
 
 static bool closed = false;
 
@@ -100,11 +101,11 @@ void read_server(int socket, char *nickname)
 		ret = poll(sockfd, 1, 5);
 		if (ret > 0) {
 			if (sockfd[0].revents & POLLIN)
-				if (recv_data(socket))
+				if (recv_data(socket)) {
 					write(socket, nickname, strlen(nickname));
+				}
 		}
 	}
-	free(nickname);
 }
 
 int main(int ac, char **av)
@@ -135,7 +136,9 @@ int main(int ac, char **av)
 		while (closed == false && (fgets(buff, sizeof(buff), stdin)) != NULL) {
 			write(client_socket, buff, strlen(buff));
 		}
+		kill(pid, SIGKILL);
 	}
+	free(nickname);
 	shutdown(client_socket, 2);
 	close(client_socket);
 }

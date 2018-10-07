@@ -45,7 +45,6 @@ void push_back(poll_collector *sockets, client_socket const *tmp)
 
 	sockets->fds_n++;
 
-	printf("%d\n", sockets->fds_n);
 	sockets->name = realloc(sockets->name, sizeof(char *) * sockets->fds_n + 1);
 	sockets->name[sockets->fds_n - 1] = malloc(sizeof(char) * (strlen(address) + 1));
 	strcpy(sockets->name[sockets->fds_n - 1], address);
@@ -64,14 +63,14 @@ void socket_pop(poll_collector *sockets, int index)
 {
 	shutdown(sockets->fds[index].fd, 2);
 	close(sockets->fds[index].fd);
-	if ((unsigned int) index < (sockets->fds_n - 1)) {
+	free(sockets->name[index]);
+	if ((unsigned int) index < (sockets->fds_n - 1)) { // don't count the server's socket
 		for (unsigned int i = index; i < (sockets->fds_n - 1); i++) {
 			sockets->fds[i] = sockets->fds[i + 1];
 			sockets->name[i] = sockets->name[i + 1];
 		}
 	}
 	sockets->fds_n--;
-	free(sockets->name[index]);
 }
 
 char *read_text(poll_collector *sockets, int index)
@@ -120,7 +119,6 @@ void find_socket(poll_collector *sockets)
 				return;
 		}
 	}
-	printf("test\n");
 	for (unsigned int j = 1; j < sockets->fds_n; j++) {
 		if (j != i) {
 			dprintf(sockets->fds[j].fd, "%s:", sockets->name[i]);
