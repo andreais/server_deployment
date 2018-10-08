@@ -71,6 +71,7 @@
 #include <stdbool.h>
 #include <signal.h>
 #include <pthread.h>
+#include <ncurses.h>
 #include "client.h"
 
 void *poll_events(void *vargp)
@@ -79,7 +80,11 @@ void *poll_events(void *vargp)
 	int ret;
 	struct tid_arg *args = vargp;
 	char buff[256];
+	WINDOW *output = newwin((LINES - 3), COLS, 0, 0);
 
+	box(output, 0, 0);
+	wmove(output, 1, 1);
+	wrefresh(output);
 	fds[0].fd = args->fd;
 	fds[0].events = POLLIN;
 	fds[1].fd = args->pipeCP[0];
@@ -93,8 +98,13 @@ void *poll_events(void *vargp)
 				read(fds[0].fd, buff, sizeof(buff));
 				if (strcmp(buff, "CONNECTED\n") == 0)
 					dprintf(fds[0].fd, "%s\n", args->nickname);
-				else
-					dprintf(1, "%s", buff);
+				else {
+					box(output, 1, 1);
+					wmove(output, 1, 1);
+					wprintw(output, "%s", buff);
+					wrefresh(output);
+					wclear(output);
+				}
 			}
 			if (fds[1].revents & POLLIN) {
 				read(fds[1].fd, buff, sizeof(buff));
@@ -105,6 +115,7 @@ void *poll_events(void *vargp)
 
 			}
 		}
+		refresh();
 	}
 	return NULL;
 }
@@ -115,6 +126,7 @@ void read_streams(int socket, char const *nickname)
 	char input[256];
 	pthread_t tid;
 	struct tid_arg args;
+	WINDOW *input_w = newwin(3, COLS, (LINES - 3), 0);
 	
 	pipe(pipeCP);
 	// thread
@@ -125,8 +137,16 @@ void read_streams(int socket, char const *nickname)
 	args.nickname = nickname;
 	pthread_create(&tid, NULL, poll_events, &args);
 	// no thread
-	while (fgets(input, sizeof(input), stdin)) {
-		write(pipeCP[1], input, sizeof(input));
+	box(input_w, 0, 0);
+	wmove(input_w, 1, 1);
+	wrefresh(input_w);
+	while (input != NULL) {
+		box(input_w, 0, 0);
+		wmove(input_w, 1, 1);
+		wrefresh(input_w);
+		wgetnstr(input_w, input, COLS - 2);
+		dprintf(pipeCP[1], "%s\n", input);
+		wclear(input_w);
 	}
 	write(pipeCP[1], "\0", 1);
 	pthread_join(tid, NULL);
@@ -139,6 +159,9 @@ int main(int ac, char **av)
 	// CHILD -> PARENT
 	int pipeCP[2];
 
+	initscr();
+	keypad(stdscr, TRUE);
+	raw();
 	pipe(pipeCP);
 	if (ac == 1) {
 		printf("Usage:\n\t./client [nickname]\n");
@@ -151,6 +174,7 @@ int main(int ac, char **av)
 	connect(client_socket, (struct sockaddr *) &client_socket_name,
 		sizeof(struct sockaddr_in));
 	read_streams(client_socket, av[1]);
+	endwin();
 	shutdown(client_socket, 2);
 	close(client_socket);
 }
