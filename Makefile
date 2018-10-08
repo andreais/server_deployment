@@ -8,7 +8,7 @@ CC		=	gcc
 
 CFLAGS		+=	-I $(DIRINC)	\
 			-Wall -Wextra -W	\
-			-g -lncurses
+			-g -lncurses -lpthread
 
 DIRSRC		+=	.	
 

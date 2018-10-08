@@ -70,115 +70,111 @@
 #include <poll.h>
 #include <stdbool.h>
 #include <signal.h>
+#include <pthread.h>
+#include <ncurses.h>
+#include "client.h"
 
-static bool closed = false;
-
-int recv_data(int socket, int pipeCP[2])
+void *poll_events(void *vargp)
 {
-	char buff[256] = {'\0'};
-	int ret = recv(socket, buff, sizeof(buff), MSG_DONTWAIT);
-	
-	if (strcmp(buff, "CONNECTED\n") == 0)
-		return 1;
-	if (ret == 0) {
-		printf("SERVER CLOSED\n");
-		closed = true;
-		exit(1);
-	} else if (ret > 0) {
-		dprintf(pipeCP[1], "%s", buff);
-	}
-	return 0;
-}
-
-void read_server(int socket, char *nickname, int pipeCP[2])
-{
-	struct pollfd sockfd[1];
+	struct pollfd fds[2];
 	int ret;
+	struct tid_arg *args = vargp;
+	char buff[256];
+	WINDOW *output = newwin((LINES - 3), COLS, 0, 0);
 
-	sockfd[0].fd = socket;
-	sockfd[0].events = POLLIN | POLLOUT;
+	box(output, 0, 0);
+	wmove(output, 1, 1);
+	wrefresh(output);
+	fds[0].fd = args->fd;
+	fds[0].events = POLLIN;
+	fds[1].fd = args->pipeCP[0];
+	fds[1].events = POLLIN;
 	while (1) {
-		ret = poll(sockfd, 1, 5);
-		if (ret > 0) {
-			if (sockfd[0].revents & POLLIN)
-				if (recv_data(socket, pipeCP)) {
-					write(socket, nickname, strlen(nickname));
-				}
-		}
-	}
-}
-
-void read_client(int socket, int pipeCP[2])
-{
-	struct pollfd sockfd[2];
-	int ret;
-	char buff[256], in[256];
-	int pipeSTD[2];
-	pid_t pid;
-
-	pipe(pipeSTD);
-	sockfd[0].fd = pipeSTD[0];
-	sockfd[0].events = POLLIN;
-	sockfd[1].fd = pipeCP[0];
-	sockfd[1].events = POLLIN;
-	if ((pid = fork()) == 0) {
-		while ((fgets(in, sizeof(in), stdin)))
-			write(pipeSTD[1], in, sizeof(in));
-		write(pipeSTD[1], "\0", 1);
-	} else {
-		while (1) {
-			ret = poll(sockfd, 2, 5);
-			if (ret > 0) {
-				if (sockfd[0].revents & POLLIN) {
-					if ((read(sockfd[0].fd, in, sizeof(in))) < (unsigned) sizeof(in))
-						return;
-					write(socket, in, sizeof(in));
-				}
-				if (sockfd[1].revents & POLLIN) {
-					read(sockfd[1].fd, buff, sizeof(buff));
-					printf("%s", buff);
+		ret = poll(fds, 2, 1 * 1000);
+		if (ret == 0)
+			continue;
+		else if (ret > 0) {
+			if (fds[0].revents & POLLIN) {
+				read(fds[0].fd, buff, sizeof(buff));
+				if (strcmp(buff, "CONNECTED\n") == 0)
+					dprintf(fds[0].fd, "%s\n", args->nickname);
+				else {
+					box(output, 1, 1);
+					wmove(output, 1, 1);
+					wprintw(output, "%s", buff);
+					wrefresh(output);
+					wclear(output);
 				}
 			}
+			if (fds[1].revents & POLLIN) {
+				read(fds[1].fd, buff, sizeof(buff));
+				if (strcmp(buff, "\0") == 0)
+					return NULL;
+				else
+					dprintf(fds[0].fd, "%s", buff);
+
+			}
 		}
+		refresh();
 	}
+	return NULL;
+}
+
+void read_streams(int socket, char const *nickname)
+{
+	int pipeCP[2];
+	char input[256];
+	pthread_t tid;
+	struct tid_arg args;
+	WINDOW *input_w = newwin(3, COLS, (LINES - 3), 0);
+	
+	pipe(pipeCP);
+	// thread
+	args.fd = socket;
+	args.pipeCP = malloc(sizeof(int) * 2);
+	args.pipeCP[0] = pipeCP[0];
+	args.pipeCP[1] = pipeCP[1];
+	args.nickname = nickname;
+	pthread_create(&tid, NULL, poll_events, &args);
+	// no thread
+	box(input_w, 0, 0);
+	wmove(input_w, 1, 1);
+	wrefresh(input_w);
+	while (input != NULL) {
+		box(input_w, 0, 0);
+		wmove(input_w, 1, 1);
+		wrefresh(input_w);
+		wgetnstr(input_w, input, COLS - 2);
+		dprintf(pipeCP[1], "%s\n", input);
+		wclear(input_w);
+	}
+	write(pipeCP[1], "\0", 1);
+	pthread_join(tid, NULL);
 }
 
 int main(int ac, char **av)
 {
 	int client_socket = socket(PF_INET, SOCK_STREAM, 0);
 	struct sockaddr_in client_socket_name;
-	char *nickname;
-	pid_t pid;
 	// CHILD -> PARENT
 	int pipeCP[2];
 
+	initscr();
+	keypad(stdscr, TRUE);
+	raw();
 	pipe(pipeCP);
 	if (ac == 1) {
 		printf("Usage:\n\t./client [nickname]\n");
 		return 2;
 	}
-	nickname = malloc(sizeof(char) * strlen(av[1]) + 2);
-	strcpy(nickname, av[1]);
-	strcat(nickname, "\n");
 	memset((char *) &client_socket_name, 0, sizeof(struct sockaddr_in));
 	client_socket_name.sin_family = AF_INET;
 	client_socket_name.sin_port = htons(SERVER_PORT);
 	inet_aton(SERVER_HOST, &client_socket_name.sin_addr);
 	connect(client_socket, (struct sockaddr *) &client_socket_name,
 		sizeof(struct sockaddr_in));
-	pid = fork();
-	if (pid == 0) {
-		read_server(client_socket, nickname, pipeCP);
-	} else {
-		read_client(client_socket, pipeCP);
-		/**
-		while (closed == false && (fgets(buff, sizeof(buff), stdin)) != NULL) {
-			write(client_socket, buff, strlen(buff));
-		}
-		**/
-		kill(pid, SIGKILL);
-	}
-	free(nickname);
+	read_streams(client_socket, av[1]);
+	endwin();
 	shutdown(client_socket, 2);
 	close(client_socket);
 }
