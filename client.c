@@ -126,7 +126,6 @@ void read_streams(int socket, char const *nickname)
 	char input[256];
 	pthread_t tid;
 	struct tid_arg args;
-	WINDOW *input_w = newwin(3, COLS, (LINES - 3), 0);
 	
 	pipe(pipeCP);
 	// thread
@@ -136,17 +135,8 @@ void read_streams(int socket, char const *nickname)
 	args.pipeCP[1] = pipeCP[1];
 	args.nickname = nickname;
 	pthread_create(&tid, NULL, poll_events, &args);
-	// no thread
-	box(input_w, 0, 0);
-	wmove(input_w, 1, 1);
-	wrefresh(input_w);
-	while (input != NULL) {
-		box(input_w, 0, 0);
-		wmove(input_w, 1, 1);
-		wrefresh(input_w);
-		wgetnstr(input_w, input, COLS - 2);
-		dprintf(pipeCP[1], "%s\n", input);
-		wclear(input_w);
+	while ((fgets(input, sizeof(input), stdin))) {
+		write(pipeCP[1], input, sizeof(input));
 	}
 	write(pipeCP[1], "\0", 1);
 	pthread_join(tid, NULL);
@@ -159,9 +149,6 @@ int main(int ac, char **av)
 	// CHILD -> PARENT
 	int pipeCP[2];
 
-	initscr();
-	keypad(stdscr, TRUE);
-	raw();
 	pipe(pipeCP);
 	if (ac == 1) {
 		printf("Usage:\n\t./client [nickname]\n");
@@ -174,7 +161,6 @@ int main(int ac, char **av)
 	connect(client_socket, (struct sockaddr *) &client_socket_name,
 		sizeof(struct sockaddr_in));
 	read_streams(client_socket, av[1]);
-	endwin();
 	shutdown(client_socket, 2);
 	close(client_socket);
 }
