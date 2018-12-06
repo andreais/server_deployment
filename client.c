@@ -90,12 +90,12 @@ void *poll_events(void *vargp)
 	fds[1].fd = args->pipeCP[0];
 	fds[1].events = POLLIN;
 	while (1) {
-		ret = poll(fds, 2, 1 * 1000);
+		ret = poll(fds, 2, 1000);
 		if (ret == 0)
 			continue;
 		else if (ret > 0) {
 			if (fds[0].revents & POLLIN) {
-				read(fds[0].fd, buff, sizeof(buff));
+				read(fds[0].fd, buff, sizeof(buff) - 1);
 				if (strcmp(buff, "CONNECTED\n") == 0)
 					dprintf(fds[0].fd, "%s\n", args->nickname);
 				else {
@@ -149,17 +149,20 @@ int main(int ac, char **av)
 	// CHILD -> PARENT
 	int pipeCP[2];
 
+	if (client_socket == -1)
+		return 1;
 	pipe(pipeCP);
 	if (ac == 1) {
 		printf("Usage:\n\t./client [nickname]\n");
 		return 2;
 	}
-	memset((char *) &client_socket_name, 0, sizeof(struct sockaddr_in));
+	memset(&client_socket_name, 0, sizeof(struct sockaddr_in));
 	client_socket_name.sin_family = AF_INET;
 	client_socket_name.sin_port = htons(SERVER_PORT);
 	inet_aton(SERVER_HOST, &client_socket_name.sin_addr);
-	connect(client_socket, (struct sockaddr *) &client_socket_name,
-		sizeof(struct sockaddr_in));
+	if ((connect(client_socket, (struct sockaddr *) &client_socket_name,
+		sizeof(struct sockaddr_in))) == -1)
+		return 1;
 	read_streams(client_socket, av[1]);
 	shutdown(client_socket, 2);
 	close(client_socket);
