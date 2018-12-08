@@ -17,6 +17,8 @@ void reading_input(void)
 {
 	char input[256];
 
+	// that's so shit lol
+	// TODO: make something of this so called function
 	while (fgets(input, sizeof(input), stdin)) {
 		if (strcmp(input, "!q\n") == 0) {
 			return;
@@ -56,6 +58,7 @@ void push_back(poll_collector *sockets, client_socket const *tmp)
 	sockets->first_data = realloc(sockets->first_data, sizeof(bool) * (sockets->fds_n));
 	sockets->first_data[sockets->fds_n - 1] = true;
 
+	// TODO: in client.c, add the reception of this message below ("CONNECTED")
 	write(sockets->fds[sockets->fds_n - 1].fd, connected, strlen(connected));
 }
 
@@ -79,7 +82,7 @@ char *read_text(poll_collector *sockets, int index)
 	int ret;
 
 	ret = recv(sockets->fds[index].fd, buff, sizeof(buff), MSG_DONTWAIT);
-	if (sockets->first_data[index] == true) {
+	if (sockets->first_data[index]) {
 		sockets->first_data[index] = false;
 		free(sockets->name[index]);
 		sockets->name[index] = strndup(buff, strlen(buff) - 1);
@@ -159,6 +162,7 @@ int main(void)
 	printf("%s%sServer created.%s\n", GREEN, BOLD, DEFAULT);
 	printf("%sListening on:\t%s:%d%s\n", GREEN, LOCAL_HOST, LOCAL_PORT, DEFAULT);
 
+	// TODO: change fork with threads
 	pid = fork();
 	if (pid == 0) {
 		wait_connections(server_socket);
