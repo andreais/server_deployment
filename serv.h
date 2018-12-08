@@ -1,6 +1,3 @@
-#ifndef SERV_H_
-#define SERV_H_
-
 #pragma once
 
 #include <sys/socket.h>
@@ -24,5 +21,3 @@ typedef struct {
 	struct sockaddr_in socket_name;
 	unsigned int addr_len;
 } client_socket;
-
-#endif /* SERV_H_ */
