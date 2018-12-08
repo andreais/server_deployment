@@ -62,7 +62,6 @@
 #define DEFAULT		"\e[0m"
 
 #define SERVER_PORT	10000
-//#define SERVER_HOST	"206.189.26.6"
 #define SERVER_HOST	"127.0.0.1"
 
 #include <stdlib.h>
@@ -96,9 +95,10 @@ void *poll_events(void *vargp)
 		else if (ret > 0) {
 			if (fds[0].revents & POLLIN) {
 				read(fds[0].fd, buff, sizeof(buff) - 1);
-				if (strcmp(buff, "CONNECTED\n") == 0)
+				if (strcmp(buff, "CONNECTED\n") == 0) {
+					write(1, buff, sizeof(buff));
 					dprintf(fds[0].fd, "%s\n", args->nickname);
-				else {
+				} else {
 					box(output, 1, 1);
 					wmove(output, 1, 1);
 					wprintw(output, "%s", buff);
@@ -112,12 +112,10 @@ void *poll_events(void *vargp)
 					return NULL;
 				else
 					dprintf(fds[0].fd, "%s", buff);
-
 			}
 		}
 		refresh();
 	}
-	return NULL;
 }
 
 void read_streams(int socket, char const *nickname)
