@@ -25,7 +25,7 @@ all:		$(EXEC)
 
 $(EXEC):	$(OBJ)
 		$(CC) -o client client.o $(CFLAGS)
-		$(CC) -o serv serv.o
+		$(CC) -o serv serv.o $(CFLAGS)
 clean:
 		rm -f *.o
 
