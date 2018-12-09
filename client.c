@@ -80,6 +80,7 @@ void *poll_events(void *vargp)
 	struct tid_arg *args = vargp;
 	char buff[256];
 	WINDOW *output = newwin((LINES - 3), COLS, 0, 0);
+	char stop_msg[] = "STOPPING\n";
 
 	box(output, 0, 0);
 	wmove(output, 1, 1);
@@ -98,6 +99,10 @@ void *poll_events(void *vargp)
 				if (strcmp(buff, "CONNECTED\n") == 0) {
 					write(1, buff, sizeof(buff));
 					dprintf(fds[0].fd, "%s\n", args->nickname);
+				} else if (strncmp(buff, stop_msg, sizeof(stop_msg)) == 0) {
+					printf("Server has stopped.\nPress enter to quit.\n");
+					*args->stop_server = 1;
+				    return NULL;
 				} else {
 					box(output, 1, 1);
 					wmove(output, 1, 1);
@@ -118,41 +123,46 @@ void *poll_events(void *vargp)
 	}
 }
 
-void read_streams(int socket, char const *nickname)
+int read_streams(int socket, char const *nickname)
 {
 	int pipeCP[2];
 	char input[256];
 	pthread_t tid;
 	struct tid_arg args;
 	
-	pipe(pipeCP);
+	if (pipe(pipeCP) < 0)
+		return FAILED_PIPE;
 	// thread
 	args.fd = socket;
 	args.pipeCP = malloc(sizeof(int) * 2);
+	if (!args.pipeCP)
+		return FAILED_ALLOC;
 	args.pipeCP[0] = pipeCP[0];
 	args.pipeCP[1] = pipeCP[1];
 	args.nickname = nickname;
-	pthread_create(&tid, NULL, poll_events, &args);
-	while ((fgets(input, sizeof(input), stdin))) {
+	args.stop_server = malloc(sizeof(int));
+	*args.stop_server = 0;
+	if (pthread_create(&tid, NULL, poll_events, &args) != 0)
+		return FAILED_THREAD_CREATION;
+	while (*args.stop_server == 0 && (fgets(input, sizeof(input), stdin))) {
 		write(pipeCP[1], input, sizeof(input));
 	}
 	write(pipeCP[1], "\0", 1);
 	pthread_join(tid, NULL);
+	return 0;
 }
 
 int main(int ac, char **av)
 {
+	int return_value = 0;
 	int client_socket = socket(PF_INET, SOCK_STREAM, 0);
 	struct sockaddr_in client_socket_name;
-	// CHILD -> PARENT
-	int pipeCP[2];
 
 	if (client_socket == -1)
-		return 1;
-	pipe(pipeCP);
+		return FAILED_CLIENT_SOCKET;
 	if (ac == 1) {
 		printf("Usage:\n\t./client [nickname]\n");
-		return 2;
+		return NE_ARGS;
 	}
 	memset(&client_socket_name, 0, sizeof(struct sockaddr_in));
 	client_socket_name.sin_family = AF_INET;
@@ -160,8 +170,9 @@ int main(int ac, char **av)
 	inet_aton(SERVER_HOST, &client_socket_name.sin_addr);
 	if ((connect(client_socket, (struct sockaddr *) &client_socket_name,
 		sizeof(struct sockaddr_in))) == -1)
-		return 1;
-	read_streams(client_socket, av[1]);
+		return FAILED_CONNECT;
+	return_value = read_streams(client_socket, av[1]);
 	shutdown(client_socket, 2);
 	close(client_socket);
+	return return_value;
 }
