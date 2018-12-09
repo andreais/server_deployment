@@ -137,6 +137,7 @@ void find_socket(poll_collector *sockets)
 void wait_connections(int server_socket, int *stop_server)
 {
 	poll_collector sockets = create_poll(server_socket);
+	char stop_msg[] = "STOPPING\n";
 	int ret;
 
 	while (*stop_server == 0) {
@@ -147,7 +148,8 @@ void wait_connections(int server_socket, int *stop_server)
 			find_socket(&sockets);
 	}
 	// TODO: send "STOPPING" at disconnect
-	for (unsigned int i = 0; i < sockets.fds_n; i++) {
+	for (unsigned int i = 1; i < sockets.fds_n; i++) {
+	  	write(sockets.fds[i].fd, stop_msg, sizeof(stop_msg));
 		close(sockets.fds[i].fd);
 		free(sockets.name[i]);
 	}
