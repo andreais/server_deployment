@@ -10,20 +10,25 @@
 #include <stdbool.h>
 #include <fcntl.h>
 #include <poll.h>
+#include <pthread.h>
 
 #include "serv.h"
 
-void reading_input(void)
+void *reading_input(void *vargp)
 {
 	char input[256];
+	int *stop_serv = vargp;
 
 	// that's so shit lol
 	// TODO: make something of this so called function
 	while (fgets(input, sizeof(input), stdin)) {
 		if (strcmp(input, "!q\n") == 0) {
-			return;
+			if (*stop_serv == 0)
+				*stop_serv = 1;
+			return NULL;
 		}
 	}
+	return NULL;
 }
 
 poll_collector create_poll(int server_socket)
@@ -129,18 +134,27 @@ void find_socket(poll_collector *sockets)
 	}
 }
 
-void wait_connections(int server_socket)
+void wait_connections(int server_socket, int *stop_server)
 {
 	poll_collector sockets = create_poll(server_socket);
 	int ret;
 
-	while (1) {
+	while (*stop_server == 0) {
 		ret = poll(sockets.fds, sockets.fds_n, 5);
 		if (ret == -1)
 			exit(1);
 		if (ret > 0)
 			find_socket(&sockets);
 	}
+	// TODO: send "STOPPING" at disconnect
+	for (unsigned int i = 0; i < sockets.fds_n; i++) {
+		close(sockets.fds[i].fd);
+		free(sockets.name[i]);
+	}
+	free(sockets.first_data);
+	free(sockets.fds);
+	free(sockets.name);
+	printf("proper stop\n");
 }
 
 int main(void)
@@ -148,7 +162,8 @@ int main(void)
 	int server_socket = socket(PF_INET, SOCK_STREAM, 0);
 	struct sockaddr_in server_socket_name;
 	int optval = 1;
-	pid_t pid;
+	int stop_server = 0;
+	pthread_t tid;
 
 	if (server_socket < 0)
 		return EXIT_FAILURE;
@@ -163,16 +178,13 @@ int main(void)
 	printf("%sListening on:\t%s:%d%s\n", GREEN, LOCAL_HOST, LOCAL_PORT, DEFAULT);
 
 	// TODO: change fork with threads
-	pid = fork();
-	if (pid == 0) {
-		wait_connections(server_socket);
-	} else {
-		reading_input();
-		kill(pid, SIGKILL);
-		waitpid(pid, NULL, 0);
-		shutdown(server_socket, 2); // stopping server_socket
-		close(server_socket); // closing server_socket
-		exit(1);
-	}
+	pthread_create(&tid, NULL, &reading_input, &stop_server);
+
+    wait_connections(server_socket, &stop_server);
+
+    pthread_join(tid, NULL);
+    shutdown(server_socket, 2); // stopping server_socket
+    close(server_socket); // closing server_socket
+    exit(1);
 	return 0;
 }
