@@ -156,7 +156,7 @@ void wait_connections(int server_socket, int *stop_server)
 	free(sockets.first_data);
 	free(sockets.fds);
 	free(sockets.name);
-	printf("proper stop\n");
+	printf("Stopped successfuly\n");
 }
 
 int main(void)
