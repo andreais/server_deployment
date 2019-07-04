@@ -73,13 +73,6 @@
 #include <ncurses.h>
 #include "client.h"
 
-void empty(char *buff, int size)
-{
-	for (int i = 0; i < size; i++)
-		buff[i] = '\0';
-	return;
-}
-
 void *poll_events(void *vargp)
 {
 	struct pollfd fds[2];
@@ -97,7 +90,7 @@ void *poll_events(void *vargp)
 	fds[1].events = POLLIN;
 	file_fd = fdopen(fds[0].fd, "r");
 	file_fd_client = fdopen(fds[1].fd, "r");
-	while (1) {
+	while (*args->stop_server == 0) {
 		ret = poll(fds, 2, 1000);
 		if (ret == 0)
 			continue;
@@ -110,20 +103,28 @@ void *poll_events(void *vargp)
 				} else if (strncmp(buff, stop_msg, sizeof(stop_msg)) == 0) {
 					printf("Server has stopped.\nPress enter to quit.\n");
 					*args->stop_server = 1;
-				    return NULL;
+					free(buff);
+					return NULL;
 				} else {
 					write(1, buff, strlen(buff));
 				}
 			}
 			if (fds[1].revents & POLLIN) {
-				getline(&buff, &s_buff, file_fd_client);
-				if (strcmp(buff, "\0") == 0)
-					return NULL;
-				else
+				if (getline(&buff, &s_buff, file_fd_client)) {
+					if (strncmp(buff, "!q", 2) == 0) {
+						*args->stop_server = 1;
+						printf("PRESS ENTER AGAIN\n");
+						free(buff);
+						return NULL;
+					}
 					dprintf(fds[0].fd, "%s", buff);
+				}
+				else
+					return NULL;
 			}
 		}
 	}
+	return NULL;
 }
 
 int read_streams(int socket, char const *nickname)
@@ -148,12 +149,14 @@ int read_streams(int socket, char const *nickname)
 	*args.stop_server = 0;
 	if (pthread_create(&tid, NULL, poll_events, &args) != 0)
 		return FAILED_THREAD_CREATION;
-	while (*args.stop_server == 0 && (getline(&input, &sizen, stdin))) {
+	while (*args.stop_server == 0 && getline(&input, &sizen, stdin) != EOF) {
 		write(pipeCP[1], input, strlen(input));
 	}
-	free(input);
 	write(pipeCP[1], "\0", 1);
 	pthread_join(tid, NULL);
+	free(args.pipeCP);
+	free(args.stop_server);
+	free(input);
 	return 0;
 }
 

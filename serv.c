@@ -99,6 +99,8 @@ char *read_text(poll_collector *sockets, int index)
 		socket_pop(sockets, index);
 		return NULL;
 	}
+	if (ret < 0)
+		printf("ERROR\n");
 	char *cpy_buff = strdup(buff);
 	return cpy_buff;
 }
