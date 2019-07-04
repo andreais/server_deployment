@@ -73,60 +73,64 @@
 #include <ncurses.h>
 #include "client.h"
 
+void empty(char *buff, int size)
+{
+	for (int i = 0; i < size; i++)
+		buff[i] = '\0';
+	return;
+}
+
 void *poll_events(void *vargp)
 {
 	struct pollfd fds[2];
 	int ret;
 	struct tid_arg *args = vargp;
-	char buff[256];
-	WINDOW *output = newwin((LINES - 3), COLS, 0, 0);
+	char *buff = NULL;
+	size_t s_buff = 256;
 	char stop_msg[] = "STOPPING\n";
+	FILE *file_fd;
+	FILE *file_fd_client;
 
-	box(output, 0, 0);
-	wmove(output, 1, 1);
-	wrefresh(output);
 	fds[0].fd = args->fd;
 	fds[0].events = POLLIN;
 	fds[1].fd = args->pipeCP[0];
 	fds[1].events = POLLIN;
+	file_fd = fdopen(fds[0].fd, "r");
+	file_fd_client = fdopen(fds[1].fd, "r");
 	while (1) {
 		ret = poll(fds, 2, 1000);
 		if (ret == 0)
 			continue;
 		else if (ret > 0) {
 			if (fds[0].revents & POLLIN) {
-				read(fds[0].fd, buff, sizeof(buff) - 1);
+				getline(&buff, &s_buff, file_fd);
 				if (strcmp(buff, "CONNECTED\n") == 0) {
-					write(1, buff, sizeof(buff));
+					write(1, buff, strlen(buff));
 					dprintf(fds[0].fd, "%s\n", args->nickname);
 				} else if (strncmp(buff, stop_msg, sizeof(stop_msg)) == 0) {
 					printf("Server has stopped.\nPress enter to quit.\n");
 					*args->stop_server = 1;
 				    return NULL;
 				} else {
-					box(output, 1, 1);
-					wmove(output, 1, 1);
-					wprintw(output, "%s", buff);
-					wrefresh(output);
-					wclear(output);
+					write(1, buff, strlen(buff));
 				}
 			}
 			if (fds[1].revents & POLLIN) {
-				read(fds[1].fd, buff, sizeof(buff));
+				getline(&buff, &s_buff, file_fd_client);
 				if (strcmp(buff, "\0") == 0)
 					return NULL;
 				else
 					dprintf(fds[0].fd, "%s", buff);
 			}
 		}
-		refresh();
 	}
 }
 
 int read_streams(int socket, char const *nickname)
 {
 	int pipeCP[2];
-	char input[256];
+	char *input = NULL;
+	size_t sizen = 256;
 	pthread_t tid;
 	struct tid_arg args;
 	
@@ -144,9 +148,10 @@ int read_streams(int socket, char const *nickname)
 	*args.stop_server = 0;
 	if (pthread_create(&tid, NULL, poll_events, &args) != 0)
 		return FAILED_THREAD_CREATION;
-	while (*args.stop_server == 0 && (fgets(input, sizeof(input), stdin))) {
-		write(pipeCP[1], input, sizeof(input));
+	while (*args.stop_server == 0 && (getline(&input, &sizen, stdin))) {
+		write(pipeCP[1], input, strlen(input));
 	}
+	free(input);
 	write(pipeCP[1], "\0", 1);
 	pthread_join(tid, NULL);
 	return 0;
