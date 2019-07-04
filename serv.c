@@ -127,9 +127,11 @@ void find_socket(poll_collector *sockets)
 				return;
 		}
 	}
+	// \/ those lines => send the received buffer to every other fd's
 	for (unsigned int j = 1; j < sockets->fds_n; j++) {
 		if (j != i) {
 			dprintf(sockets->fds[j].fd, "%s:%s", sockets->name[i], buff);
+			free(buff);
 		}
 	}
 }
@@ -147,7 +149,6 @@ void wait_connections(int server_socket, int *stop_server)
 		if (ret > 0)
 			find_socket(&sockets);
 	}
-	// TODO: send "STOPPING" at disconnect
 	for (unsigned int i = 1; i < sockets.fds_n; i++) {
 	  	write(sockets.fds[i].fd, stop_msg, sizeof(stop_msg));
 		close(sockets.fds[i].fd);
@@ -185,7 +186,7 @@ int main(void)
     wait_connections(server_socket, &stop_server);
 
     pthread_join(tid, NULL);
-    shutdown(server_socket, 2); // stopping server_socket
+	    shutdown(server_socket, 2); // stopping server_socket
     close(server_socket); // closing server_socket
     exit(1);
 	return 0;
