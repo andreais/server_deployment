@@ -34,6 +34,7 @@ void *reading_input(void *vargp)
 poll_collector create_poll(int server_socket)
 {
 	poll_collector sockets;
+	char srv[] = "SERVER";
 
 	sockets.fds = malloc(sizeof(struct pollfd) * 1);
 	sockets.fds_n = 1;
@@ -41,7 +42,7 @@ poll_collector create_poll(int server_socket)
 	sockets.first_data = malloc(sizeof(bool) * 1);
 	sockets.fds[0].fd = server_socket;
 	sockets.fds[0].events = POLLIN;
-	sockets.name[0] = strdup("SERVER");
+	sockets.name[0] = strdup(srv);
 	return sockets;
 }
 
@@ -158,6 +159,7 @@ void wait_connections(int server_socket, int *stop_server)
 	}
 	free(sockets.first_data);
 	free(sockets.fds);
+	free(sockets.name[0]);
 	free(sockets.name);
 	printf("Stopped successfuly\n");
 }
